@@ -1,5 +1,8 @@
 package com.akvasoft.events.config;
 
+import com.akvasoft.events.dto.ExcelData;
+import com.akvasoft.events.dto.Organizer;
+import com.akvasoft.events.modal.City;
 import com.akvasoft.events.modal.Event;
 import com.akvasoft.events.service.EventService;
 import org.openqa.selenium.By;
@@ -32,20 +35,21 @@ public class Scraper implements InitializingBean {
     public void afterPropertiesSet() throws Exception {
         FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
         latlongDriver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver.get("https://www.latlong.net");
+//        latlongDriver.get("https://www.latlong.net");
+        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
 
-        List<String> cityList = new ArrayList<>();
-        cityList.add("london");
+        List<City> allCities = eventService.getAllCities();
 
-        searchGoogle(driver, cityList);
+        searchGoogle(driver, allCities);
     }
 
-    private void searchGoogle(FirefoxDriver driver, List<String> cityList) throws InterruptedException {
+    private void searchGoogle(FirefoxDriver driver, List<City> cityList) throws InterruptedException, IOException {
         List<String> eventList = new ArrayList<>();
-        for (String city : cityList) {
+        List<ExcelData> excelList = new ArrayList<>();
+        for (City city : cityList) {
             driver.get("https://www.google.com/");
             WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
-            input.sendKeys("events " + city);
+            input.sendKeys("events " + city.getCity_Name());
             input.sendKeys(Keys.ENTER);
 
             Thread.sleep(3000);
@@ -80,6 +84,7 @@ public class Scraper implements InitializingBean {
                     System.err.println("ARRAY LENGTH LESS THAN 2.");
                 }
 
+
                 String infoClass = div.getAttribute("class");
                 if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
                     System.err.println("g mnr-c g-blk class not found.");
@@ -96,6 +101,7 @@ public class Scraper implements InitializingBean {
                             .findElements(By.xpath("./*")).get(0);
                 }
 
+
                 WebElement iuf4Uc = data.findElement(By.className("IUF4Uc"));
                 String website = "";
                 try {
@@ -106,25 +112,28 @@ public class Scraper implements InitializingBean {
                             .findElement(By.tagName("a")).getAttribute("href");
                 }
 
-                saveEvent(iuf4Uc, driver, website);
+
+                excelList.add(saveEvent(iuf4Uc, driver, website, excelList, city));
                 Thread.sleep(2000);
             }
-
-
+            eventService.createExcelFile(excelList);
             break;
         }
 
     }
 
-    private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website) throws InterruptedException {
+    private ExcelData saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, List<ExcelData> eventList, City city) throws InterruptedException {
+
         String name = iuf4Uc.findElements(By.xpath("./*")).get(0).getAttribute("innerText");
         String date = iuf4Uc.findElements(By.xpath("./*")).get(1).getAttribute("innerText");
         String location = iuf4Uc.findElements(By.xpath("./*")).get(2).findElements(By.xpath("./*")).get(0).getAttribute("innerText");
+        String organizer = iuf4Uc.findElements(By.xpath("./*")).get(2).findElements(By.xpath("./*")).get(0).findElement(By.tagName("a")).getAttribute("href");
         String address = iuf4Uc.findElements(By.xpath("./*")).get(2).findElements(By.xpath("./*")).get(1).getAttribute("innerText");
         String latlong = getLatitude(address);
         String image = saveImage(driver, iuf4Uc.findElements(By.xpath("./*")).get(0).getAttribute("innerText")
                 .replace(" ", "_")
                 .replace("-", "_"));
+        String description = getDescription(website);
 
         String[] fullDate = date.split(",");
         String day = fullDate[0];
@@ -139,43 +148,137 @@ public class Scraper implements InitializingBean {
 
         Event event = new Event();
         event.setAddress(address);
-        event.setCategory("");
+        event.setCategory("event");
         event.setDate(formattedDate);
         event.setImage(image);
-        event.setLatitude(latlong.split("-")[0]);
-        event.setLongitude(latlong.split("-")[1]);
+        event.setLatitude(latlong.split("@")[0]);
+        event.setLongitude(latlong.split("@")[1]);
         event.setDay(fullDate[0]);
         event.setLocation(location);
         event.setName(name);
         event.setTime(time);
         event.setWebsite(website);
+        Organizer organizer1 = getOrganizer(organizer, driver, website);
         eventService.saveEvent(event);
 
-        System.err.println("===========================================================");
-        System.err.println("===========================SAVED===========================");
-        System.err.println("===========================================================");
-
-
-        System.out.println("NAME      - " + name);
-        System.out.println("DATE      - " + formattedDate);
-        System.out.println("LOCATION  - " + location);
-        System.out.println("ADDRESS   - " + address);
-        System.out.println("IMAGE     - " + image);
-        System.out.println("LAT LONG  - " + latlong);
-        System.out.println("DAY       - " + day);
-        System.out.println("TIME      - " + fullDate[fullDate.length - 1]);
-        System.out.println("WEBSITE   - " + website);
-
+        ExcelData data = new ExcelData();
+        data.setAddress(address);
+        data.setAlive_days("?");
+        data.setCountry_id(city.getCountry_Id());
+        data.setEnd_date("?");
+        data.setGeo_latitude(latlong.split("@")[0]);
+        data.setGeo_longitude(latlong.split("@")[1]);
+        data.setMap_view(city.getMap_Type());
+        data.setOrganizer_mobile(organizer1.getOrganizer_mobile());
+        data.setOrganizer_name(organizer1.getOrganizer_name());
+        data.setOrganizer_website(organizer1.getOrganizer_website());
+        data.setPackage_id("55");
+        data.setPost_city_id(city.getId() + "");
+        data.setSt_date("?");
+        data.setSt_time("?");
+        data.setTemplatic_comment_status("open");
+        data.setTemplatic_img(image);
+        data.setTemplatic_ping_status("publish");
+        data.setTemplatic_post_author("1");
+        data.setTemplatic_post_category("events");
+        data.setTemplatic_post_content("?");
+        data.setTemplatic_post_date(formattedDate + " " + time);
+        data.setTemplatic_post_name(name);
+        data.setTemplatic_post_status("publish");
+        data.setTemplatic_post_title(name);
+        data.setTemplatic_post_type("event");
+        data.setZones_id(city.getZones_Id());
+        return data;
 
     }
 
+    private String getDescription(String website) {
+
+        if (website.contains("eventbrite.com.au")) {
+            return "--";
+        } else if (website.contains("permaculturevictoria.org.au")) {
+            return "--";
+        } else if (website.contains("meetup.com")) {
+            return "--";
+        } else if (website.contains("activeapril.vic.gov.au")) {
+            return "--";
+        } else if (website.contains("kinglakeranges.com.au")) {
+            return "--";
+        } else if (website.contains("evensi.com")) {
+            return "--";
+        } else if (website.contains("yourlibrary.com.au")) {
+            return "--";
+        } else if (website.contains("onlymelbourne.com.au")) {
+            return "--";
+        } else if (website.contains("maroondah.vic.gov.au")) {
+            return "--";
+        } else if (website.contains("gawler.org")) {
+            return "--";
+        } else if (website.contains("bandsintown.com")) {
+            return "--";
+        } else if (website.contains("zumba.com")) {
+            return "--";
+        } else if (website.contains("fieldandgame.com.au")) {
+            return "--";
+        } else if (website.contains("eventful.com")) {
+            return "--";
+        } else if (website.contains("songkick.com")) {
+            return "--";
+        } else if (website.contains("facebook.com")) {
+            return "--";
+        } else if (website.contains("vicparks.com.au")) {
+            return "--";
+        } else if (website.contains("thehomehotel.net.au")) {
+            return "--";
+        } else if (website.contains("whittleseacountrymusicfestival.com.au")) {
+            return "--";
+        } else if (website.contains("boroondara.vic.gov.au")) {
+            return "--";
+        } else if (website.contains("nunawadingswimmingclub.com")) {
+            return "--";
+        } else if (website.contains("avocapark.com.au")) {
+            return "--";
+        } else if (website.contains("fredstinyhouses.com.au")) {
+            return "--";
+        } else {
+            return "--";
+        }
+    }
+
+    private Organizer getOrganizer(String organizer, FirefoxDriver driver, String website) {
+        driver.get(organizer);
+        Organizer organizer1 = new Organizer();
+        WebElement mainDiv = driver.findElementByXPath("//*[@id=\"rhs_block\"]");
+        String organizer_name = mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
+                .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
+                .findElements(By.xpath("./*")).get(1).findElement(By.tagName("div")).findElements(By.xpath("./*")).get(1)
+                .findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                .findElements(By.xpath("./*")).get(0).getAttribute("innerText");
+        String phone = "";
+        for (WebElement element : mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
+                .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
+                .findElements(By.xpath("./*"))) {
+
+            String innerHTML = element.getAttribute("innerText");
+            if (innerHTML.contains("Phone")) {
+                System.err.println("found===========================" + innerHTML.split("Phone")[1]);
+                phone = innerHTML.split("Phone")[1];
+                break;
+            }
+
+        }
+
+        organizer1.setOrganizer_mobile(phone);
+        organizer1.setOrganizer_name(organizer_name);
+        organizer1.setOrganizer_website(website);
+
+        System.out.println(organizer_name + " <<<<<<------------------ organizer_name");
+        System.out.println(phone + " <<<<<<------------------ organizer_phone");
+        System.out.println(website + " <<<<<<------------------ organizer_website");
+        return organizer1;
+    }
+
     private String fixDateFormat(String fullMonth, String year) {
-
-
-        System.out.println("===========================================================");
-        System.out.println("=======================FIXING DATE=========================");
-        System.out.println("===========================================================");
-        System.out.println("=======================" + fullMonth + "=========================");
 
         String month = fullMonth.split(" ")[1];
         String day = fullMonth.split(" ")[2];
@@ -208,7 +311,7 @@ public class Scraper implements InitializingBean {
             month = "12";
         }
 
-        return month + "/" + day + "/" + year.trim();
+        return month + "-" + day + "-" + year.trim();
 
     }
 
@@ -240,29 +343,73 @@ public class Scraper implements InitializingBean {
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
 
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
+            System.err.println("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE");
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         } catch (IOException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
+            System.err.println("ERROR IN IMAGE SAVE METHOD. IO CATCH CLAUSE");
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+        } catch (IllegalArgumentException t) {
+            System.err.println("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION");
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         }
     }
 
     private String getLatitude(String address) throws InterruptedException {
 
-        WebElement place = latlongDriver.findElementByXPath("//*[@id=\"place\"]");
+        String latitude = "";
+        String longitude = "";
+        int count = 0;
 
-        place.clear();
-        place.sendKeys(address);
-        Thread.sleep(1000);
-        place.sendKeys(Keys.ENTER);
-        Thread.sleep(5000);
+        while (true) {
+            System.out.println("ADDRESS  " + address + "******************************************");
+            // https://www.latlong.net
 
-        String latitude = latlongDriver.findElementByXPath("//*[@id=\"lat\"]").getAttribute("value");
-        String longitude = latlongDriver.findElementByXPath("//*[@id=\"lng\"]").getAttribute("value");
-        latlongDriver.findElementByXPath("//*[@id=\"lat\"]").clear();
-        latlongDriver.findElementByXPath("//*[@id=\"lng\"]").clear();
-        return latitude + "-" + longitude;
+//        WebElement place = latlongDriver.findElementByXPath("//*[@id=\"place\"]");
+//
+//        place.clear();
+//        place.sendKeys(address);
+//        Thread.sleep(1000);
+//        place.sendKeys(Keys.ENTER);
+//        Thread.sleep(5000);
+//
+//        String latitude = latlongDriver.findElementByXPath("//*[@id=\"lat\"]").getAttribute("value");
+//        String longitude = latlongDriver.findElementByXPath("//*[@id=\"lng\"]").getAttribute("value");
+//        latlongDriver.findElementByXPath("//*[@id=\"lat\"]").clear();
+//        latlongDriver.findElementByXPath("//*[@id=\"lng\"]").clear();
+
+
+            WebElement place = latlongDriver.findElementByXPath("//*[@id=\"address\"]");
+            place.clear();
+            place.sendKeys(address);
+            Thread.sleep(1000);
+            latlongDriver.findElementByXPath("//*[@id=\"btnGetGpsCoordinates\"]").click();
+            latlongDriver.findElementByXPath("//*[@id=\"btnGetGpsCoordinates\"]").click();
+            Thread.sleep(5000);
+
+
+            latitude = latlongDriver.findElementByXPath("//*[@id=\"latitude\"]").getAttribute("value");
+            longitude = latlongDriver.findElementByXPath("//*[@id=\"longitude\"]").getAttribute("value");
+
+            System.out.println(latitude + " ------ " + longitude);
+
+            latlongDriver.findElementByXPath("//*[@id=\"latitude\"]").clear();
+            latlongDriver.findElementByXPath("//*[@id=\"longitude\"]").clear();
+            latlongDriver.findElementByXPath("//*[@id=\"address\"]").clear();
+
+
+            if (latitude.length() > 2 && longitude.length() > 2) {
+                break;
+            } else if (count > 5) {
+                latitude = "not found";
+                longitude = "not found";
+                break;
+            }
+            latlongDriver.get("https://gps-coordinates.org/");
+            Thread.sleep(2000);
+            count++;
+        }
+        return latitude + "@" + longitude;
     }
-
 }
