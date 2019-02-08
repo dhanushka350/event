@@ -163,9 +163,9 @@ public class Scraper implements InitializingBean {
 
         ExcelData data = new ExcelData();
         data.setAddress(address);
-        data.setAlive_days("?");
+        data.setAlive_days("9");
         data.setCountry_id(city.getCountry_Id());
-        data.setEnd_date("?");
+        data.setEnd_date("-");
         data.setGeo_latitude(latlong.split("@")[0]);
         data.setGeo_longitude(latlong.split("@")[1]);
         data.setMap_view(city.getMap_Type());
@@ -174,8 +174,8 @@ public class Scraper implements InitializingBean {
         data.setOrganizer_website(organizer1.getOrganizer_website());
         data.setPackage_id("55");
         data.setPost_city_id(city.getId() + "");
-        data.setSt_date("?");
-        data.setSt_time("?");
+        data.setSt_date(formattedDate);
+        data.setSt_time(time);
         data.setTemplatic_comment_status("open");
         data.setTemplatic_img(image);
         data.setTemplatic_ping_status("publish");
