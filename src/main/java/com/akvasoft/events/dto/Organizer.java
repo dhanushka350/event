@@ -28,7 +28,6 @@ public class Organizer {
     }
 
     public String getOrganizer_mobile() {
-        System.out.println("*********************************************************************** " + organizer_mobile);
         if (organizer_mobile == null) {
             organizer_mobile = "-";
         }

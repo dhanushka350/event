@@ -1,6 +1,10 @@
 package com.akvasoft.events.dto;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
+
 public class ExcelData {
+    private int id;
     private String templatic_post_author;
     private String templatic_post_date;
     private String templatic_post_title;

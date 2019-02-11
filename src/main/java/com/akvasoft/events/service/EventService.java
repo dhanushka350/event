@@ -25,11 +25,15 @@ public class EventService {
     private CityRepo cityRepo;
 
     public boolean saveEvent(Event event) {
-        Event equals = eventRepository.getTopByNameEquals(event.getName());
+        Event equals = eventRepository.getTopByTemplaticPostNameEquals(event.getTemplaticPostName());
         if (equals != null) {
             event.setId(equals.getId());
             System.out.println("===========================================================");
             System.out.println("=======================EVENT UPDATED=======================");
+            System.out.println("===========================================================");
+        } else {
+            System.out.println("===========================================================");
+            System.out.println("========================EVENT SAVED========================");
             System.out.println("===========================================================");
         }
         eventRepository.save(event);

@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface EventRepository extends JpaRepository<Event, Integer> {
 
-    Event getTopByNameEquals(String name);
+    Event getTopByTemplaticPostNameEquals(String name);
 }
