@@ -41,14 +41,14 @@ public class Scraper implements InitializingBean {
         LOGGER.info("INITIALIZING DRIVERS");
 
         FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
-//        latlongDriver = new DriverInitializer().getFirefoxDriver();
-//        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-//        List<City> allCities = eventService.getAllCities();
+        latlongDriver = new DriverInitializer().getFirefoxDriver();
+        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+        List<City> allCities = eventService.getAllCities();
 
-//        LOGGER.info("FOUND " + allCities.size() + " CITIES");
-//        searchGoogle(driver, allCities);
+        LOGGER.info("FOUND " + allCities.size() + " CITIES");
+        searchGoogle(driver, allCities);
         LOGGER.info("SCRAPE FINISHED.");
-        fileUpload.uploadToWhatsonyarravalley(driver);
+//        fileUpload.uploadToWhatsonyarravalley(driver);
 
     }
 
@@ -56,10 +56,7 @@ public class Scraper implements InitializingBean {
         List<String> eventList = new ArrayList<>();
         int cityCount = 1;
         for (City city : cityList) {
-            if (cityCount < 5) {
-                cityCount++;
-                continue;
-            }
+
             driver.get("https://www.google.com/");
             WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
             input.sendKeys("events " + city.getCity_Name());
@@ -133,7 +130,7 @@ public class Scraper implements InitializingBean {
                 Thread.sleep(2000);
             }
             LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
-            if (cityCount == 10) {
+            if (cityCount == 3) {
                 break;
             }
             cityCount++;
@@ -161,23 +158,9 @@ public class Scraper implements InitializingBean {
         if (time.contains("AM") || time.contains("PM")) {
 
         } else {
-            time = "-";
+            time = " ";
         }
 
-
-//        Event event = new Event();
-//        event.setAddress(address);
-//        event.setCategory("event");
-//        event.setDate(formattedDate);
-//        event.setImage(image);
-//        event.setLatitude(latlong.split("@")[0]);
-//        event.setLongitude(latlong.split("@")[1]);
-//        event.setDay(fullDate[0]);
-//        event.setLocation(location);
-//        event.setName(name);
-//        event.setTime(time);
-//        event.setWebsite(website);
-//        eventService.saveEvent(event);
 
         Organizer organizer1 = getOrganizer(organizer, driver, website);
         String description = getDescription(website, driver);
@@ -186,11 +169,11 @@ public class Scraper implements InitializingBean {
         data.setAddress(address);
         data.setAlive_days("9");
         data.setCountry_id(city.getCountry_Id());
-        data.setEnd_date("-");
+        data.setEnd_date(formattedDate);
         data.setGeo_latitude(latlong.split("@")[0]);
         data.setGeo_longitude(latlong.split("@")[1]);
         data.setMap_view(city.getMap_Type());
-        data.setOrganizer_mobile(organizer1.getOrganizer_mobile());
+        data.setOrganizer_mobile(organizer1.getOrganizer_mobile().replace("+", "").replace(":", ""));
         data.setOrganizer_name(organizer1.getOrganizer_name());
         data.setOrganizer_website(organizer1.getOrganizer_website());
         data.setPackage_id("55");
@@ -199,7 +182,7 @@ public class Scraper implements InitializingBean {
         data.setSt_time(time);
         data.setTemplatic_comment_status("open");
         data.setTemplatic_img(image);
-        data.setTemplatic_ping_status("publish");
+        data.setTemplatic_ping_status("open");
         data.setTemplatic_post_author("1");
         data.setTemplatic_post_category("events");
         data.setTemplatic_post_content(description);
@@ -696,6 +679,7 @@ public class Scraper implements InitializingBean {
                 .findElement(By.className("irc_mic")).findElements(By.xpath("./*")).get(0)
                 .findElement(By.tagName("a")).findElement(By.tagName("img")).getAttribute("src");
         event = event.replace("-", "_");
+        event = event.replace("/", "_");
         LOGGER.info("SAVING IMAGE URL " + src);
         try {
             URL imageUrl = new URL(src);
