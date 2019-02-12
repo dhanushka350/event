@@ -24,10 +24,10 @@ public class Event {
     @Column(name = "templatic_post_category")
     private String templatic_post_category;
 
-    @Column(name = "templatic_img")
+    @Column(name = "templatic_img", length = 2500)
     private String templatic_img;
 
-    @Column(name = "templatic_post_content")
+    @Column(name = "templatic_post_content", length = 5000)
     private String templatic_post_content;
 
     @Column(name = "templatic_post_status")
@@ -51,7 +51,7 @@ public class Event {
     @Column(name = "map_view")
     private String map_view;
 
-    @Column(name = "address")
+    @Column(name = "address", length = 1000)
     private String address;
 
     @Column(name = "st_date")
@@ -66,7 +66,7 @@ public class Event {
     @Column(name = "organizer_name")
     private String organizer_name;
 
-    @Column(name = "organizer_website")
+    @Column(name = "organizer_website", length = 5000)
     private String organizer_website;
 
     @Column(name = "organizer_mobile")
@@ -143,6 +143,9 @@ public class Event {
     }
 
     public void setTemplatic_post_content(String templatic_post_content) {
+        if (templatic_post_content.length() > 5000) {
+            templatic_post_content = templatic_post_content.substring(0, 4990);
+        }
         this.templatic_post_content = templatic_post_content;
     }
 

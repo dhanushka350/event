@@ -44,8 +44,9 @@ public class EventService {
         return cityRepo.findAll();
     }
 
-    public void createExcelFile(List<ExcelData> datalist) throws IOException {
+    public void createExcelFile() throws IOException {
 
+        List<Event> datalist = eventRepository.findAll();
 
         Workbook workbook = new XSSFWorkbook();
         CreationHelper createHelper = workbook.getCreationHelper();
@@ -98,7 +99,7 @@ public class EventService {
         dateCellStyle.setDataFormat(createHelper.createDataFormat().getFormat("dd/MM/yyyy"));
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 2));
         int rows = 2;
-        for (ExcelData data : datalist) {
+        for (Event data : datalist) {
             Row row = sheet.createRow(rows++);
             row.createCell(0).setCellValue(data.getTemplatic_post_author());
             row.createCell(1).setCellValue(data.getTemplatic_post_date());
@@ -109,7 +110,7 @@ public class EventService {
             row.createCell(6).setCellValue(data.getTemplatic_post_status());
             row.createCell(7).setCellValue(data.getTemplatic_comment_status());
             row.createCell(8).setCellValue(data.getTemplatic_ping_status());
-            row.createCell(9).setCellValue(data.getTemplatic_post_name());
+            row.createCell(9).setCellValue(data.getTemplaticPostName());
             row.createCell(10).setCellValue(data.getTemplatic_post_type());
             row.createCell(11).setCellValue(data.getPost_city_id());
             row.createCell(12).setCellValue(data.getMap_view());

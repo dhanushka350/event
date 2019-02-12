@@ -51,9 +51,12 @@ public class Scraper implements InitializingBean {
 
     private void searchGoogle(FirefoxDriver driver, List<City> cityList) throws InterruptedException, IOException {
         List<String> eventList = new ArrayList<>();
-        List<ExcelData> excelList = new ArrayList<>();
         int cityCount = 1;
         for (City city : cityList) {
+            if (cityCount < 5) {
+                cityCount++;
+                continue;
+            }
             driver.get("https://www.google.com/");
             WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
             input.sendKeys("events " + city.getCity_Name());
@@ -123,7 +126,7 @@ public class Scraper implements InitializingBean {
                 }
 
 
-                saveEvent(iuf4Uc, driver, website, excelList, city);
+                saveEvent(iuf4Uc, driver, website, city);
                 Thread.sleep(2000);
             }
             LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
@@ -133,10 +136,10 @@ public class Scraper implements InitializingBean {
             cityCount++;
 
         }
-        eventService.createExcelFile(excelList);
+        eventService.createExcelFile();
     }
 
-    private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, List<ExcelData> eventList, City city) throws InterruptedException {
+    private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws InterruptedException {
 
         String name = iuf4Uc.findElements(By.xpath("./*")).get(0).getAttribute("innerText");
         String date = iuf4Uc.findElements(By.xpath("./*")).get(1).getAttribute("innerText");
@@ -196,13 +199,14 @@ public class Scraper implements InitializingBean {
         data.setTemplatic_ping_status("publish");
         data.setTemplatic_post_author("1");
         data.setTemplatic_post_category("events");
-        data.setTemplatic_post_content("?");
+        data.setTemplatic_post_content(description);
         data.setTemplatic_post_date(formattedDate + " " + time);
         data.setTemplaticPostName(name);
         data.setTemplatic_post_status("publish");
         data.setTemplatic_post_title(name);
         data.setTemplatic_post_type("event");
         data.setZones_id(city.getZones_Id());
+        eventService.saveEvent(data);
 
     }
 
@@ -218,12 +222,25 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM eventbrite.com.au");
             }
             return desc;
+
+
         } else if (website.contains("permaculturevictoria.org.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - permaculturevictoria.org.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - permaculturevictoria.org.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[2]/div[3]/div/div/div/div/div/div")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM permaculturevictoria.org.au");
+            }
+            return desc;
+
+
         } else if (website.contains("meetup.com")) {
             LOGGER.info("GETTING FROM : - meetup.com");
             driver.get(website);
@@ -239,28 +256,52 @@ public class Scraper implements InitializingBean {
                             .getAttribute("innerText");
                     System.err.println(desc);
                 } catch (NoSuchElementException v) {
-//                    v.printStackTrace();
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM meetup.com");
                 }
             }
             return desc;
+
+
         } else if (website.contains("activeapril.vic.gov.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - activeapril.vic.gov.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - activeapril.vic.gov.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[4]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/p")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[4]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException v) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM activeapril.vic.gov.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("kinglakeranges.com.au")) {
             LOGGER.info("GETTING FROM : - kinglakeranges.com.au");
             driver.get(website);
             String desc = "--";
-//            try {
-//                desc = driver.findElementByXPath("/html/body/div[2]/div[2]/div/h5[2]").getAttribute("innerText");
-//                if (desc.length() < 2) {
-//                    desc = driver.findElementByXPath("/html/body/div[1]/div[3]/div[1]/div/div[2]/div/div/div[2]/div/div/div[2]/div[3]/div/div[1]/div/div/div[2]/div/div/div/span")
-//                            .getAttribute("innerText");
-//                }
-//                System.err.println(desc);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
+            try {
+                desc = driver.findElementByXPath("/html/body/div[1]/div/div/div/div/div[1]/article/div[2]/div/div[3]/p[5]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[1]/div/div/div/div/div[1]/article/div[2]/div/div[3]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException v) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM kinglakeranges.com.au");
+                }
+            }
             return desc;
+
+
         } else if (website.contains("evensi.com")) {
             LOGGER.info("GETTING FROM : - evensi.com");
             driver.get(website);
@@ -270,9 +311,11 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM evensi.com");
             }
             return desc;
+
+
         } else if (website.contains("yourlibrary.com.au")) {
             LOGGER.info("GETTING FROM : - yourlibrary.com.au");
             driver.get(website);
@@ -282,15 +325,51 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM yourlibrary.com.au");
             }
             return desc;
+
+
         } else if (website.contains("onlymelbourne.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - onlymelbourne.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - onlymelbourne.com.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[1]/div[3]/div[1]/div/div[2]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[1]/div[3]/div[1]/div")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException v) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM onlymelbourne.com.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("maroondah.vic.gov.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - maroondah.vic.gov.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - maroondah.vic.gov.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/form/div[3]/div[1]/div[2]/main/div/div[1]/div[4]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/form/div[3]/div[1]/div[2]/main/div/div[1]/div[2]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException v) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM maroondah.vic.gov.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("gawler.org")) {
             LOGGER.info("GETTING FROM : - gawler.org");
             driver.get(website);
@@ -300,9 +379,11 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM gawler.org");
             }
             return desc;
+
+
         } else if (website.contains("bandsintown.com")) {
             LOGGER.info("GETTING FROM : - bandsintown.com");
             driver.get(website);
@@ -312,15 +393,23 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM bandsintown.com");
             }
             return desc;
+
+
         } else if (website.contains("zumba.com")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - zumba.com");
-            return "--";
-        } else if (website.contains("fieldandgame.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - fieldandgame.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - zumba.com");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[2]/div/div[1]/div/div[4]/article/div[2]/p[1]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM zumba.com");
+            }
+            return desc;
         } else if (website.contains("eventful.com")) {
             LOGGER.info("GETTING FROM : - eventful.com");
             driver.get(website);
@@ -330,15 +419,11 @@ public class Scraper implements InitializingBean {
                         .getAttribute("innerText");
                 System.err.println(desc);
             } catch (Exception e) {
-//                e.printStackTrace();
+                LOGGER.warning("FAILED TO RETRIEVE DESC FROM eventful.com");
             }
             return desc;
-        } else if (website.contains("songkick.com")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - songkick.com");
-            driver.get(website);
-            String desc = "--";
 
-            return desc;
+
         } else if (website.contains("facebook.com")) {
             LOGGER.info("GETTING FROM : - facebook.com");
             driver.get(website);
@@ -353,13 +438,32 @@ public class Scraper implements InitializingBean {
                             .getAttribute("innerText");
                     System.err.println(desc);
                 } catch (NoSuchElementException v) {
-//                    v.printStackTrace();
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM facebook.com");
                 }
             }
             return desc;
+
+
         } else if (website.contains("vicparks.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - vicparks.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - vicparks.com.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[4]/div/main/div/div[2]/div[4]/div[2]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[4]/div/main/div/div[2]/div[4]/div[2]/p[2]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM vicparks.com.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("thehomehotel.net.au")) {
             LOGGER.warning("GETTING FROM : - thehomehotel.net.au");
             driver.get(website);
@@ -374,25 +478,126 @@ public class Scraper implements InitializingBean {
                             .getAttribute("innerText");
                     System.err.println(desc);
                 } catch (NoSuchElementException f) {
-
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM thehomehotel.net.au");
                 }
             }
             return desc;
+
+
         } else if (website.contains("whittleseacountrymusicfestival.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - whittleseacountrymusicfestival.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - whittleseacountrymusicfestival.com.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[1]/div/div[1]/p[3]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("//*[@id=\"content-container-pro\"]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM  whittleseacountrymusicfestival.com.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("boroondara.vic.gov.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - boroondara.vic.gov.au");
-            return "--";
+            LOGGER.warning("GETTING FROM  : - boroondara.vic.gov.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[1]/div/div[1]/main/div[2]/div/div/div/div/div/div/div/div[1]/div[2]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[1]/div/div[1]/main/div[2]/div/div/div/div/div/div/div/div[1]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM boroondara.vic.gov.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("nunawadingswimmingclub.com")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - nunawadingswimmingclub.com");
-            return "--";
+            LOGGER.warning("GETTING FROM : - nunawadingswimmingclub.com");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[2]/div/main/div/div[2]/div[3]/div[3]/div[1]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[2]/div/main/div/div[2]/div[3]/div[3]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM nunawadingswimmingclub.com");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("avocapark.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - avocapark.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - avocapark.com.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/div[1]/div/div/div[2]/div[4]/div[1]/div/div/div[2]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/div[1]/div/div/div[2]/div[4]/div[1]/div/div/div[1]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM avocapark.com.au");
+                }
+            }
+            return desc;
+
+
         } else if (website.contains("fredstinyhouses.com.au")) {
-            LOGGER.warning("NEED UPDATE | FOUND : - fredstinyhouses.com.au");
-            return "--";
+            LOGGER.warning("GETTING FROM : - fredstinyhouses.com.au");
+            driver.get(website);
+            String desc = "--";
+            try {
+                desc = driver.findElementByXPath("/html/body/section[1]/div/div[1]/main/article/div[1]/div[2]/div[3]/div[2]/p[1]")
+                        .getAttribute("innerText");
+                System.err.println(desc);
+            } catch (Exception e) {
+                try {
+                    desc = driver.findElementByXPath("/html/body/section[1]/div/div[1]/main/article/div[1]/div[2]/div[3]/div[2]")
+                            .getAttribute("innerText");
+                    System.err.println(desc);
+                } catch (NoSuchElementException f) {
+                    LOGGER.warning("FAILED TO RETRIEVE DESC FROM fredstinyhouses.com.au");
+                }
+            }
+            return desc;
+
+
+        } else if (website.contains("fieldandgame.com.au")) {
+            LOGGER.warning("SKIPPING DESCRIPTION SITE : - fieldandgame.com.au");
+            driver.get(website);
+            String desc = "--";
+            return desc;
+
+
+        } else if (website.contains("songkick.com")) {
+            LOGGER.warning("SKIPPING DESCRIPTION SITE : - songkick.com");
+            driver.get(website);
+            String desc = "--";
+            return desc;
+
+
         } else {
             LOGGER.warning("SITE NOT IN EXPECTED LIST");
             return "--";
