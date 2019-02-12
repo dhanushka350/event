@@ -33,6 +33,7 @@ public class Scraper implements InitializingBean {
     private EventService eventService;
 
     FirefoxDriver latlongDriver;
+    FileUpload fileUpload;
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
 
     @Override
@@ -40,13 +41,15 @@ public class Scraper implements InitializingBean {
         LOGGER.info("INITIALIZING DRIVERS");
 
         FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-        List<City> allCities = eventService.getAllCities();
+//        latlongDriver = new DriverInitializer().getFirefoxDriver();
+//        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+//        List<City> allCities = eventService.getAllCities();
 
-        LOGGER.info("FOUND " + allCities.size() + " CITIES");
-        searchGoogle(driver, allCities);
+//        LOGGER.info("FOUND " + allCities.size() + " CITIES");
+//        searchGoogle(driver, allCities);
         LOGGER.info("SCRAPE FINISHED.");
+        fileUpload.uploadToWhatsonyarravalley(driver);
+
     }
 
     private void searchGoogle(FirefoxDriver driver, List<City> cityList) throws InterruptedException, IOException {
@@ -130,7 +133,7 @@ public class Scraper implements InitializingBean {
                 Thread.sleep(2000);
             }
             LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
-            if (cityCount == 5) {
+            if (cityCount == 10) {
                 break;
             }
             cityCount++;
@@ -713,6 +716,9 @@ public class Scraper implements InitializingBean {
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         } catch (IllegalArgumentException t) {
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 447");
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+        } catch (NullPointerException d) {
+            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 447");
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         }
     }
