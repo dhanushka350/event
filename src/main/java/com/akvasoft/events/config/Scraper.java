@@ -161,6 +161,7 @@ public class Scraper implements InitializingBean {
         LOGGER.info("SCRAPE FINISHED.");
         eventService.createExcelFile();
         fileUpload.uploadToWhatsonyarravalley();
+        eventService.resetCities();
     }
 
     private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws InterruptedException {

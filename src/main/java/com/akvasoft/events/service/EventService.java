@@ -7,6 +7,7 @@ import com.akvasoft.events.repo.CityRepo;
 import com.akvasoft.events.repo.EventRepository;
 import com.opencsv.CSVWriter;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.*;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -225,6 +227,14 @@ public class EventService {
         }
         csvWriter.writeAll(csvRows);
         csvWriter.close();
+    }
 
+    public void resetCities() {
+        List<City> list = new ArrayList<>();
+        for (City city : cityRepo.findAll()) {
+            city.setStatus("PENDING");
+            list.add(city);
+        }
+        cityRepo.saveAll(list);
     }
 }
