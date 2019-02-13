@@ -44,12 +44,12 @@ public class Scraper implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         LOGGER.info("INITIALIZING DRIVERS");
-        FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
         latlongDriver = new DriverInitializer().getFirefoxDriver();
         latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
 
         for (int i = 0; i < 1; i++) {
             new Thread(() -> {
+                FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
                 try {
                     searchGoogle(driver);
                 } catch (InterruptedException e) {
@@ -57,6 +57,7 @@ public class Scraper implements InitializingBean {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                driver.close();
             }).start();
         }
     }
@@ -67,101 +68,105 @@ public class Scraper implements InitializingBean {
     }
 
     private void searchGoogle(FirefoxDriver driver) throws InterruptedException, IOException {
-        List<String> eventList = new ArrayList<>();
-        int cityCount = 1;
-        while (true) {
-            City city = findAvailableCity();
-            if (city == null) {
-                break;
-            }
-
-
-            driver.get("https://www.google.com/");
-            WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
-            input.sendKeys("events " + city.getCity_Name());
-            input.sendKeys(Keys.ENTER);
-
-            Thread.sleep(3000);
-            WebElement mainEventDiv = null;
-            try {
-                mainEventDiv = driver.findElementByXPath("/html/body/div[6]/div[3]/div[7]/div[1]/div/div/div/div/div/div[2]/div/g-scrolling-carousel/div/div");
-            } catch (NoSuchElementException t) {
-                LOGGER.warning("LINE 65 | SKIPPING CITY : " + city.getCity_Name() + " CAN NOT FIND EVENTS IN GOOGLE.");
-                continue;
-            }
-            for (WebElement events : mainEventDiv.findElements(By.xpath("./*"))) {
-                for (WebElement div : events.findElement(By.tagName("div")).findElements(By.xpath("./*"))) {
-                    eventList.add(div.findElement(By.tagName("a")).getAttribute("href"));
+        try {
+            List<String> eventList = new ArrayList<>();
+            int cityCount = 1;
+            while (true) {
+                City city = findAvailableCity();
+                if (city == null) {
+                    break;
                 }
 
-            }
 
-            for (String event : eventList) {
-                driver.get(event);
-                WebElement web2 = null;
-                WebElement web = null;
+                driver.get("https://www.google.com/");
+                WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
+                input.sendKeys("events " + city.getCity_Name());
+                input.sendKeys(Keys.ENTER);
 
-                WebElement mainInfoDiv = driver.findElementByXPath("//*[@id=\"rso\"]");
-                WebElement div = mainInfoDiv.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"));
-                web = mainInfoDiv.findElements(By.xpath("./*")).get(1).findElement(By.tagName("div"));
-
-                // main info div array size can be changed.
+                Thread.sleep(3000);
+                WebElement mainEventDiv = null;
                 try {
-                    // element index 2 can be a span. there is no div inside it
-                    try {
-                        web2 = mainInfoDiv.findElements(By.xpath("./*")).get(2).findElement(By.tagName("div"));
-                    } catch (NoSuchElementException r) {
-                        web2 = mainInfoDiv.findElements(By.xpath("./*")).get(3).findElement(By.tagName("div"));
-                    }
-                } catch (IndexOutOfBoundsException e) {
-                    LOGGER.warning("LINE 87 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
-                }
-
-
-                String infoClass = div.getAttribute("class");
-                if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
-                    LOGGER.warning("LINE 87 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
+                    mainEventDiv = driver.findElementByXPath("/html/body/div[6]/div[3]/div[7]/div[1]/div/div/div/div/div/div[2]/div/g-scrolling-carousel/div/div");
+                } catch (NoSuchElementException t) {
+                    LOGGER.warning("LINE 65 | SKIPPING CITY : " + city.getCity_Name() + " CAN NOT FIND EVENTS IN GOOGLE.");
                     continue;
                 }
+                for (WebElement events : mainEventDiv.findElements(By.xpath("./*"))) {
+                    for (WebElement div : events.findElement(By.tagName("div")).findElements(By.xpath("./*"))) {
+                        eventList.add(div.findElement(By.tagName("a")).getAttribute("href"));
+                    }
 
-                WebElement data = null;
-                try {
-                    data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
-                            .findElements(By.xpath("./*")).get(1);
-                } catch (IndexOutOfBoundsException e) {
-                    data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
-                            .findElements(By.xpath("./*")).get(0);
                 }
 
+                for (String event : eventList) {
+                    driver.get(event);
+                    WebElement web2 = null;
+                    WebElement web = null;
 
-                WebElement iuf4Uc = data.findElement(By.className("IUF4Uc"));
-                String website = "";
-                try {
-                    website = web.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
-                            .findElement(By.tagName("a")).getAttribute("href");
-                } catch (NoSuchElementException e) {
-                    website = web2.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
-                            .findElement(By.tagName("a")).getAttribute("href");
+                    WebElement mainInfoDiv = driver.findElementByXPath("//*[@id=\"rso\"]");
+                    WebElement div = mainInfoDiv.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"));
+                    web = mainInfoDiv.findElements(By.xpath("./*")).get(1).findElement(By.tagName("div"));
+
+                    // main info div array size can be changed.
+                    try {
+                        // element index 2 can be a span. there is no div inside it
+                        try {
+                            web2 = mainInfoDiv.findElements(By.xpath("./*")).get(2).findElement(By.tagName("div"));
+                        } catch (NoSuchElementException r) {
+                            web2 = mainInfoDiv.findElements(By.xpath("./*")).get(3).findElement(By.tagName("div"));
+                        }
+                    } catch (IndexOutOfBoundsException e) {
+                        LOGGER.warning("LINE 87 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
+                    }
+
+
+                    String infoClass = div.getAttribute("class");
+                    if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
+                        LOGGER.warning("LINE 87 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
+                        continue;
+                    }
+
+                    WebElement data = null;
+                    try {
+                        data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
+                                .findElements(By.xpath("./*")).get(1);
+                    } catch (IndexOutOfBoundsException e) {
+                        data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
+                                .findElements(By.xpath("./*")).get(0);
+                    }
+
+
+                    WebElement iuf4Uc = data.findElement(By.className("IUF4Uc"));
+                    String website = "";
+                    try {
+                        website = web.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                                .findElement(By.tagName("a")).getAttribute("href");
+                    } catch (NoSuchElementException e) {
+                        website = web2.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                                .findElement(By.tagName("a")).getAttribute("href");
+                    }
+
+
+                    saveEvent(iuf4Uc, driver, website, city);
+                    Thread.sleep(2000);
                 }
 
+                eventService.updateCityStatus(city, "DONE");
+                LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
+                if (cityCount == 3) {
+                    break;
+                }
+                cityCount++;
 
-                saveEvent(iuf4Uc, driver, website, city);
-                Thread.sleep(2000);
             }
 
-            eventService.updateCityStatus(city, "DONE");
-            LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
-            if (cityCount == 3) {
-                break;
-            }
-            cityCount++;
-
+            LOGGER.info("SCRAPE FINISHED.");
+            eventService.createExcelFile();
+            fileUpload.uploadToWhatsonyarravalley();
+        }finally {
+            eventService.resetCities();
         }
 
-        LOGGER.info("SCRAPE FINISHED.");
-        eventService.createExcelFile();
-        fileUpload.uploadToWhatsonyarravalley();
-        eventService.resetCities();
     }
 
     private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws InterruptedException {
@@ -732,7 +737,7 @@ public class Scraper implements InitializingBean {
         }
     }
 
-    public String getLatitude(String address) throws InterruptedException {
+    public synchronized String getLatitude(String address) throws InterruptedException {
 
         String latitude = "";
         String longitude = "";
