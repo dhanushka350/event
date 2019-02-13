@@ -10,8 +10,10 @@ import java.util.logging.Logger;
 public class FileUpload {
     private static final Logger LOGGER = Logger.getLogger(FileUpload.class.getName());
 
-    public static void uploadToWhatsonyarravalley(FirefoxDriver driver) {
+    public static void uploadToWhatsonyarravalley() {
         LOGGER.info("FILE UPLOAD : START");
+        DriverInitializer initializer = new DriverInitializer();
+        FirefoxDriver driver = initializer.getFirefoxDriver();
 
         driver.get("https://whatsonyarravalley.com.au/wp-admin/");
         WebElement email = driver.findElementByXPath("//*[@id=\"user_login\"]");
@@ -25,7 +27,7 @@ public class FileUpload {
         driver.get("https://whatsonyarravalley.com.au/wp-admin/admin.php?page=bulk_upload");
         WebElement browse = driver.findElementByXPath("//*[@id=\"csv_import\"]");
 //        browse.sendKeys("/home/dhanushka/Downloads/GoogleImportsI.csv");
-        browse.sendKeys("/var/lib/tomcat8/EVENTS.xlsx");
+        browse.sendKeys("/var/lib/tomcat8/EVENTS.csv");
         WebElement submit = driver.findElementByXPath("//*[@id=\"submit\"]");
         submit.click();
 

@@ -5,16 +5,23 @@ import com.akvasoft.events.modal.City;
 import com.akvasoft.events.modal.Event;
 import com.akvasoft.events.repo.CityRepo;
 import com.akvasoft.events.repo.EventRepository;
+import com.opencsv.CSVWriter;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Service
 public class EventService {
@@ -23,6 +30,7 @@ public class EventService {
     private EventRepository eventRepository;
     @Autowired
     private CityRepo cityRepo;
+    private static ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public boolean saveEvent(Event event) {
         Event equals = eventRepository.getTopByTemplaticPostNameEquals(event.getTemplaticPostName());
@@ -42,6 +50,23 @@ public class EventService {
 
     public List<City> getAllCities() {
         return cityRepo.findAll();
+    }
+
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public City nextScrapeCity() {
+        readWriteLock.writeLock().lock();
+        City pending = cityRepo.findTopByStatusEquals("PENDING");
+        updateCityStatus(pending, "SCRAPING");
+        readWriteLock.writeLock().unlock();
+        return pending;
+    }
+
+    public void updateCityStatus(City city, String status) {
+        if (city != null) {
+            city.setStatus(status);
+            cityRepo.saveAndFlush(city);
+        }
     }
 
     public void createExcelFile() throws IOException {
@@ -133,6 +158,73 @@ public class EventService {
         workbook.write(fileOut);
         fileOut.close();
         System.out.println("Excel Created");
-//        }
+
+        CSVWriter csvWriter = new CSVWriter(new FileWriter("/var/lib/tomcat8/EVENTS.csv"));
+        List<String[]> csvRows = new LinkedList<String[]>();
+        csvRows.add(new String[]
+                {
+                        "templatic_post_author",
+                        "templatic_post_date",
+                        "templatic_post_title",
+                        "templatic_post_category",
+                        "templatic_img",
+                        "templatic_post_content",
+                        "templatic_post_status",
+                        "templatic_comment_status",
+                        "templatic_ping_status",
+                        "templatic_post_name",
+                        "templatic_post_type",
+                        "post_city_id",
+                        "map_view",
+                        "address",
+                        "st_date",
+                        "end_date",
+                        "st_time",
+                        "organizer_name",
+                        "organizer_website",
+                        "organizer_mobile",
+                        "country_id",
+                        "zones_id",
+                        "alive_days",
+                        "geo_latitude",
+                        "geo_longitude",
+                        "package_id "
+
+                });
+
+        for (Event data : datalist) {
+            csvRows.add(new String[]
+                    {
+                            data.getTemplatic_post_author(),
+                            data.getTemplatic_post_date(),
+                            data.getTemplatic_post_title(),
+                            data.getTemplatic_post_category(),
+                            data.getTemplatic_img(),
+                            data.getTemplatic_post_content(),
+                            data.getTemplatic_post_status(),
+                            data.getTemplatic_comment_status(),
+                            data.getTemplatic_ping_status(),
+                            data.getTemplaticPostName(),
+                            data.getTemplatic_post_type(),
+                            data.getPost_city_id(),
+                            data.getMap_view(),
+                            data.getAddress(),
+                            data.getSt_date(),
+                            data.getEnd_date(),
+                            data.getSt_time(),
+                            data.getOrganizer_name(),
+                            data.getOrganizer_website(),
+                            data.getOrganizer_mobile(),
+                            data.getCountry_id(),
+                            data.getZones_id(),
+                            data.getAlive_days(),
+                            data.getGeo_latitude(),
+                            data.getGeo_longitude(),
+                            data.getPackage_id()
+                    });
+        }
+        csvWriter.writeAll(csvRows);
+        csvWriter.close();
+
     }
 }

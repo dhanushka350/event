@@ -13,6 +13,8 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -24,6 +26,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
 @Component
@@ -32,6 +36,7 @@ public class Scraper implements InitializingBean {
     @Autowired
     private EventService eventService;
 
+
     FirefoxDriver latlongDriver;
     FileUpload fileUpload;
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
@@ -39,23 +44,37 @@ public class Scraper implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         LOGGER.info("INITIALIZING DRIVERS");
-
         FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
         latlongDriver = new DriverInitializer().getFirefoxDriver();
         latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-        List<City> allCities = eventService.getAllCities();
 
-        LOGGER.info("FOUND " + allCities.size() + " CITIES");
-        searchGoogle(driver, allCities);
-        LOGGER.info("SCRAPE FINISHED.");
-//        fileUpload.uploadToWhatsonyarravalley(driver);
-
+        for (int i = 0; i < 1; i++) {
+            new Thread(() -> {
+                try {
+                    searchGoogle(driver);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
     }
 
-    private void searchGoogle(FirefoxDriver driver, List<City> cityList) throws InterruptedException, IOException {
+
+    private City findAvailableCity() throws IOException {
+        return eventService.nextScrapeCity();
+    }
+
+    private void searchGoogle(FirefoxDriver driver) throws InterruptedException, IOException {
         List<String> eventList = new ArrayList<>();
         int cityCount = 1;
-        for (City city : cityList) {
+        while (true) {
+            City city = findAvailableCity();
+            if (city == null) {
+                break;
+            }
+
 
             driver.get("https://www.google.com/");
             WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
@@ -129,6 +148,8 @@ public class Scraper implements InitializingBean {
                 saveEvent(iuf4Uc, driver, website, city);
                 Thread.sleep(2000);
             }
+
+            eventService.updateCityStatus(city, "DONE");
             LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
             if (cityCount == 3) {
                 break;
@@ -136,7 +157,10 @@ public class Scraper implements InitializingBean {
             cityCount++;
 
         }
+
+        LOGGER.info("SCRAPE FINISHED.");
         eventService.createExcelFile();
+        fileUpload.uploadToWhatsonyarravalley();
     }
 
     private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws InterruptedException {
@@ -687,48 +711,33 @@ public class Scraper implements InitializingBean {
             BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
                     saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
             newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-            ImageIO.write(newBufferedImage, "jpg", new File("/home/dhanushka/Desktop/ooo/" + event + ".jpg"));
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
+            ImageIO.write(newBufferedImage, "jpg", new File("/var/lib/tomcat8/bulk" + event + ".jpg"));
+            return "https://localhost:8080/var/lib/tomcat8/bulk/" + event + ".jpg";
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE | LINE 440");
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
         } catch (IOException e) {
             e.printStackTrace();
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. IO CATCH CLAUSE | LINE 444");
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
         } catch (IllegalArgumentException t) {
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 447");
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         } catch (NullPointerException d) {
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 447");
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
         }
     }
 
-    private String getLatitude(String address) throws InterruptedException {
+    public String getLatitude(String address) throws InterruptedException {
 
         String latitude = "";
         String longitude = "";
         int count = 0;
 
         while (true) {
-            // https://www.latlong.net
-
-//        WebElement place = latlongDriver.findElementByXPath("//*[@id=\"place\"]");
-//
-//        place.clear();
-//        place.sendKeys(address);
-//        Thread.sleep(1000);
-//        place.sendKeys(Keys.ENTER);
-//        Thread.sleep(5000);
-//
-//        String latitude = latlongDriver.findElementByXPath("//*[@id=\"lat\"]").getAttribute("value");
-//        String longitude = latlongDriver.findElementByXPath("//*[@id=\"lng\"]").getAttribute("value");
-//        latlongDriver.findElementByXPath("//*[@id=\"lat\"]").clear();
-//        latlongDriver.findElementByXPath("//*[@id=\"lng\"]").clear();
-
             WebElement place = null;
             try {
                 place = latlongDriver.findElementByXPath("//*[@id=\"address\"]");

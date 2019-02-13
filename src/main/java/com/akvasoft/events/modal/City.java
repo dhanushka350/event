@@ -61,6 +61,17 @@ public class City {
     @Column(name = "header_image")
     private String header_image;
 
+    @Column(name = "status")
+    private String status;
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     public int getId() {
         return id;
     }
