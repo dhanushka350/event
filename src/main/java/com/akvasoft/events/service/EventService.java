@@ -34,7 +34,7 @@ public class EventService {
     private CityRepo cityRepo;
     private static ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
-    public boolean saveEvent(Event event) {
+    public boolean saveEvent(Event event) throws Exception {
         Event equals = eventRepository.getTopByTemplaticPostNameEquals(event.getTemplaticPostName());
         if (equals != null) {
             event.setId(equals.getId());
@@ -56,7 +56,8 @@ public class EventService {
 
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public City nextScrapeCity() {
+    public City nextScrapeCity() throws Exception {
+        System.out.println("888888888888888888");
         readWriteLock.writeLock().lock();
         City pending = cityRepo.findTopByStatusEquals("PENDING");
         updateCityStatus(pending, "SCRAPING");
@@ -64,14 +65,14 @@ public class EventService {
         return pending;
     }
 
-    public void updateCityStatus(City city, String status) {
+    public void updateCityStatus(City city, String status) throws Exception {
         if (city != null) {
             city.setStatus(status);
             cityRepo.saveAndFlush(city);
         }
     }
 
-    public void createExcelFile() throws IOException {
+    public void createExcelFile() throws Exception {
 
         List<Event> datalist = eventRepository.findAll();
 
@@ -170,27 +171,57 @@ public class EventService {
                         "templatic_post_title",
                         "templatic_post_category",
                         "templatic_img",
+                        "templatic_post_tags",
                         "templatic_post_content",
+                        "templatic_post_excerpt",
                         "templatic_post_status",
                         "templatic_comment_status",
                         "templatic_ping_status",
                         "templatic_post_name",
                         "templatic_post_type",
+                        "templatic_post_comment_count",
+                        "templatic_comments_data",
                         "post_city_id",
-                        "map_view",
                         "address",
+                        "geo_latitude",
+                        "geo_longitude",
+                        "map_view",
+                        "event_type",
                         "st_date",
                         "end_date",
                         "st_time",
+                        "end_time",
+                        "reg_fees",
+                        "reg_desc",
+                        "phone",
+                        "post_tags",
+                        "email",
+                        "website",
+                        "twitter",
+                        "facebook",
+                        "google_plus",
                         "organizer_name",
+                        "organizer_email",
+                        "organizer_logo",
+                        "organizer_address",
+                        "organizer_contact",
                         "organizer_website",
                         "organizer_mobile",
+                        "organizer_desc",
+                        "video",
                         "country_id",
                         "zones_id",
+                        "recurrence_occurs",
+                        "recurrence_per",
+                        "recurrence_days",
+                        "recurrence_bydays",
+                        "monthly_recurrence_byweekno",
+                        "recurrence_byday",
+                        "set_st_time",
+                        "set_end_time",
                         "alive_days",
-                        "geo_latitude",
-                        "geo_longitude",
-                        "package_id "
+                        "featured_type",
+                        "package_id"
 
                 });
 
@@ -202,26 +233,56 @@ public class EventService {
                             data.getTemplatic_post_title(),
                             data.getTemplatic_post_category(),
                             data.getTemplatic_img(),
+                            "",//templatic_post_tags
                             data.getTemplatic_post_content(),
+                            "",//templatic_post_excerpt
                             data.getTemplatic_post_status(),
                             data.getTemplatic_comment_status(),
                             data.getTemplatic_ping_status(),
                             data.getTemplaticPostName(),
                             data.getTemplatic_post_type(),
+                            "0",//templatic_post_comment_count
+                            "",//templatic_comments_data
                             data.getPost_city_id(),
-                            data.getMap_view(),
                             data.getAddress(),
+                            data.getGeo_latitude(),
+                            data.getGeo_longitude(),
+                            data.getMap_view(),
+                            "Regular event",//event_type
                             data.getSt_date(),
                             data.getEnd_date(),
                             data.getSt_time(),
+                            "",//end_time
+                            "",//reg_fees
+                            "",//reg_desc
+                            "",//phone
+                            "",//post_tags
+                            "",//email
+                            "",//website
+                            "",//twitter
+                            "",//facebook
+                            "",//google_plus
                             data.getOrganizer_name(),
+                            "",//organizer_email
+                            "",//organizer_logo
+                            "",//organizer_address
+                            "",//organizer_contact
                             data.getOrganizer_website(),
                             data.getOrganizer_mobile(),
+                            "",//organizer_desc
+                            "",//video
                             data.getCountry_id(),
                             data.getZones_id(),
+                            "",//recurrence_occurs
+                            "",//recurrence_per
+                            "",//recurrence_days
+                            "",//recurrence_bydays
+                            "",//monthly_recurrence_byweekno
+                            "",//recurrence_byday
+                            "",//set_st_time
+                            "",//set_end_time
                             data.getAlive_days(),
-                            data.getGeo_latitude(),
-                            data.getGeo_longitude(),
+                            "",//featured_type
                             data.getPackage_id()
                     });
         }
@@ -229,7 +290,7 @@ public class EventService {
         csvWriter.close();
     }
 
-    public void resetCities() {
+    public void resetCities() throws Exception {
         List<City> list = new ArrayList<>();
         for (City city : cityRepo.findAll()) {
             city.setStatus("PENDING");

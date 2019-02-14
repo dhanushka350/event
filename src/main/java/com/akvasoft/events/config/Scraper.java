@@ -26,6 +26,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
@@ -42,37 +43,54 @@ public class Scraper implements InitializingBean {
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
 
     @Override
-    public void afterPropertiesSet() throws Exception {
+    public void afterPropertiesSet() {
         LOGGER.info("INITIALIZING DRIVERS");
         latlongDriver = new DriverInitializer().getFirefoxDriver();
         latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+        startScrape();
+    }
 
-        for (int i = 0; i < 1; i++) {
-            new Thread(() -> {
-                FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
-                try {
-                    searchGoogle(driver);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                driver.close();
-            }).start();
+
+    private void startScrape() {
+
+        try {
+            for (int i = 0; i < 2; i++) {
+                new Thread(() -> {
+                    FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
+                    try {
+
+                        searchGoogle(driver);
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    driver.close();
+                }).start();
+            }
+
+        } catch (Exception e) {
+            LOGGER.info("EXCEPTION OCCURRED DURING THE SCRAPE");
+            LOGGER.info("RESTARTING");
         }
     }
 
 
-    private City findAvailableCity() throws IOException {
+    private City findAvailableCity() throws Exception {
+        System.out.println("findAvailableCity called");
         return eventService.nextScrapeCity();
     }
 
-    private void searchGoogle(FirefoxDriver driver) throws InterruptedException, IOException {
+    private void searchGoogle(FirefoxDriver driver) throws Exception {
         try {
             List<String> eventList = new ArrayList<>();
             int cityCount = 1;
             while (true) {
                 City city = findAvailableCity();
+                System.out.println("==========================" + city.getCity_Name());
                 if (city == null) {
                     break;
                 }
@@ -88,7 +106,7 @@ public class Scraper implements InitializingBean {
                 try {
                     mainEventDiv = driver.findElementByXPath("/html/body/div[6]/div[3]/div[7]/div[1]/div/div/div/div/div/div[2]/div/g-scrolling-carousel/div/div");
                 } catch (NoSuchElementException t) {
-                    LOGGER.warning("LINE 65 | SKIPPING CITY : " + city.getCity_Name() + " CAN NOT FIND EVENTS IN GOOGLE.");
+                    LOGGER.warning("LINE 110 | SKIPPING CITY : " + city.getCity_Name() + " CAN NOT FIND EVENTS IN GOOGLE.");
                     continue;
                 }
                 for (WebElement events : mainEventDiv.findElements(By.xpath("./*"))) {
@@ -98,7 +116,9 @@ public class Scraper implements InitializingBean {
 
                 }
 
+
                 for (String event : eventList) {
+
                     driver.get(event);
                     WebElement web2 = null;
                     WebElement web = null;
@@ -116,13 +136,13 @@ public class Scraper implements InitializingBean {
                             web2 = mainInfoDiv.findElements(By.xpath("./*")).get(3).findElement(By.tagName("div"));
                         }
                     } catch (IndexOutOfBoundsException e) {
-                        LOGGER.warning("LINE 87 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
+                        LOGGER.warning("LINE 139 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
                     }
 
 
                     String infoClass = div.getAttribute("class");
                     if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
-                        LOGGER.warning("LINE 87 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
+                        LOGGER.warning("LINE 145 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
                         continue;
                     }
 
@@ -148,28 +168,26 @@ public class Scraper implements InitializingBean {
 
 
                     saveEvent(iuf4Uc, driver, website, city);
-                    Thread.sleep(2000);
+                    Thread.sleep(5000);
+
                 }
 
                 eventService.updateCityStatus(city, "DONE");
                 LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
-                if (cityCount == 3) {
-                    break;
-                }
                 cityCount++;
 
             }
 
             LOGGER.info("SCRAPE FINISHED.");
             eventService.createExcelFile();
-            fileUpload.uploadToWhatsonyarravalley();
-        }finally {
+            fileUpload.uploadToWhatsonyarravalley(driver);
+        } finally {
             eventService.resetCities();
         }
 
     }
 
-    private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws InterruptedException {
+    private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws Exception {
 
         String name = iuf4Uc.findElements(By.xpath("./*")).get(0).getAttribute("innerText");
         String date = iuf4Uc.findElements(By.xpath("./*")).get(1).getAttribute("innerText");
@@ -185,10 +203,12 @@ public class Scraper implements InitializingBean {
         String day = fullDate[0];
         String formattedDate = fixDateFormat(fullDate[1], fullDate[2]);
         String time = fullDate[fullDate.length - 1];
-        if (time.contains("AM") || time.contains("PM")) {
 
+        if (time.contains("AM") || time.contains("PM")) {
+            time = time.replace("AM", "").replace("PM", "");
+            time = time + ":00";
         } else {
-            time = " ";
+            time = "00:00:00";
         }
 
 
@@ -214,7 +234,7 @@ public class Scraper implements InitializingBean {
         data.setTemplatic_img(image);
         data.setTemplatic_ping_status("open");
         data.setTemplatic_post_author("1");
-        data.setTemplatic_post_category("events");
+        data.setTemplatic_post_category("Events");
         data.setTemplatic_post_content(description);
         data.setTemplatic_post_date(formattedDate + " " + time);
         data.setTemplaticPostName(name);
@@ -226,7 +246,7 @@ public class Scraper implements InitializingBean {
 
     }
 
-    private String getDescription(String website, FirefoxDriver driver) {
+    private String getDescription(String website, FirefoxDriver driver) throws Exception {
         LOGGER.info("SEARCHING SITE FOR DESCRIPTION. - " + website);
 
         if (website.contains("eventbrite.com.au")) {
@@ -621,7 +641,7 @@ public class Scraper implements InitializingBean {
 
     }
 
-    private Organizer getOrganizer(String organizer, FirefoxDriver driver, String website) {
+    private Organizer getOrganizer(String organizer, FirefoxDriver driver, String website) throws Exception {
         driver.get(organizer);
         Organizer organizer1 = new Organizer();
         WebElement mainDiv = driver.findElementByXPath("//*[@id=\"rhs_block\"]");
@@ -631,6 +651,7 @@ public class Scraper implements InitializingBean {
                 .findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
                 .findElements(By.xpath("./*")).get(0).getAttribute("innerText");
         String phone = "";
+
         for (WebElement element : mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
                 .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
                 .findElements(By.xpath("./*"))) {
@@ -650,8 +671,8 @@ public class Scraper implements InitializingBean {
         return organizer1;
     }
 
-    private String fixDateFormat(String fullMonth, String year) {
-
+    private String fixDateFormat(String fullMonth, String year) throws Exception {
+        String date = "";
         String month = fullMonth.split(" ")[1];
         String day = fullMonth.split(" ")[2];
         month = month.trim();
@@ -683,11 +704,12 @@ public class Scraper implements InitializingBean {
             month = "12";
         }
 
-        return month + "-" + day + "-" + year.trim();
+        date = year + "-" + month + "-" + day;
+        return date.trim();
 
     }
 
-    private String saveImage(FirefoxDriver driver, String event) throws InterruptedException {
+    private String saveImage(FirefoxDriver driver, String event) throws Exception {
         for (WebElement nav : driver.findElementByXPath("//*[@id=\"hdtb-msb-vis\"]").findElements(By.xpath("./*"))) {
             try {
                 if (nav.findElement(By.tagName("a")).getAttribute("innerText").equalsIgnoreCase("Images")) {
@@ -695,12 +717,16 @@ public class Scraper implements InitializingBean {
                     break;
                 }
             } catch (NoSuchElementException e) {
-                LOGGER.warning("NSE EXCEPTION  - Method save image. clicking on navigation for images. line 419");
+                LOGGER.warning("NSE EXCEPTION  - Method save image. clicking on navigation for images. line 712");
             }
         }
 
-        driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
-                .findElements(By.xpath("./*")).get(0).click();
+        try {
+            driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
+                    .findElements(By.xpath("./*")).get(0).click();
+        } catch (Exception e) {
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+        }
 
         Thread.sleep(1000);
         WebElement bigImage = driver.findElementByXPath("//*[@id=\"irc_bg\"]");
@@ -718,26 +744,26 @@ public class Scraper implements InitializingBean {
                     saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
             newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
             ImageIO.write(newBufferedImage, "jpg", new File("/var/lib/tomcat8/bulk" + event + ".jpg"));
-            return "https://localhost:8080/var/lib/tomcat8/bulk/" + event + ".jpg";
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/" + event + ".jpg";
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE | LINE 440");
-            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE | LINE 739");
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
         } catch (IOException e) {
             e.printStackTrace();
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. IO CATCH CLAUSE | LINE 444");
-            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
         } catch (IllegalArgumentException t) {
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 447");
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 746");
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
         } catch (NullPointerException d) {
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 447");
-            return "https://localhost:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 749");
+            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
         }
     }
 
-    public synchronized String getLatitude(String address) throws InterruptedException {
+    public synchronized String getLatitude(String address) throws Exception {
 
         String latitude = "";
         String longitude = "";

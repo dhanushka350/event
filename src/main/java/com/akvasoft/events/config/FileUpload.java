@@ -10,10 +10,8 @@ import java.util.logging.Logger;
 public class FileUpload {
     private static final Logger LOGGER = Logger.getLogger(FileUpload.class.getName());
 
-    public static void uploadToWhatsonyarravalley() {
+    public static void uploadToWhatsonyarravalley(FirefoxDriver driver) throws InterruptedException {
         LOGGER.info("FILE UPLOAD : START");
-        DriverInitializer initializer = new DriverInitializer();
-        FirefoxDriver driver = initializer.getFirefoxDriver();
 
         driver.get("https://whatsonyarravalley.com.au/wp-admin/");
         WebElement email = driver.findElementByXPath("//*[@id=\"user_login\"]");
@@ -32,6 +30,7 @@ public class FileUpload {
         submit.click();
 
         driver.switchTo().alert().accept();
+        Thread.sleep(60000);
         LOGGER.info("FILE UPLOAD : END");
     }
 }

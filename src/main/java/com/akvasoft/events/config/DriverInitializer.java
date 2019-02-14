@@ -21,7 +21,7 @@ public class DriverInitializer {
     public ChromeDriver getChromeDriver() {
         System.setProperty("webdriver.chrome.driver", "/var/lib/tomcat8/chromedriver");
         ChromeOptions options = new ChromeOptions();
-        options.setHeadless(false);
+        options.setHeadless(true);
         return new ChromeDriver(options);
     }
 }
