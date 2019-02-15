@@ -725,7 +725,7 @@ public class Scraper implements InitializingBean {
             driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
                     .findElements(By.xpath("./*")).get(0).click();
         } catch (Exception e) {
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
         }
 
         Thread.sleep(1000);
@@ -740,26 +740,28 @@ public class Scraper implements InitializingBean {
         try {
             URL imageUrl = new URL(src);
             BufferedImage saveImage = ImageIO.read(imageUrl);
-            BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
-                    saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+            BufferedImage newBufferedImage = new BufferedImage(1000000,
+                    100000000, BufferedImage.TYPE_INT_RGB);
             newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-            ImageIO.write(newBufferedImage, "jpg", new File("/var/lib/tomcat8/bulk/" + event + ".jpg"));
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/" + event + ".jpg";
+            ImageIO.write(newBufferedImage, "jpg", new File("/opt/bulk/" + event + ".jpg"));
+            saveImage.flush();
+            newBufferedImage.flush();
+            return "https://104.248.52.78:8080/asset/bulk/" + event + ".jpg";
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE | LINE 739");
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
         } catch (IOException e) {
             e.printStackTrace();
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. IO CATCH CLAUSE | LINE 444");
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
         } catch (IllegalArgumentException t) {
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 746");
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
         } catch (NullPointerException d) {
             LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 749");
-            return "https://104.248.52.78:8080/var/lib/tomcat8/bulk/image-not-found.png";
+            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
         }
     }
 
