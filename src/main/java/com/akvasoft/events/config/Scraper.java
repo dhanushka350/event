@@ -24,6 +24,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.Normalizer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +42,7 @@ public class Scraper implements InitializingBean {
 
     FirefoxDriver latlongDriver;
     FileUpload fileUpload;
+    Normalizer normalizer;
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
 
     @Override
@@ -88,7 +91,10 @@ public class Scraper implements InitializingBean {
         try {
             List<String> eventList = new ArrayList<>();
             int cityCount = 1;
+
+
             while (true) {
+
                 City city = findAvailableCity();
                 System.out.println("==========================" + city.getCity_Name());
                 if (city == null) {
@@ -118,69 +124,75 @@ public class Scraper implements InitializingBean {
 
 
                 for (String event : eventList) {
-
-                    driver.get(event);
-                    WebElement web2 = null;
-                    WebElement web = null;
-
-                    WebElement mainInfoDiv = driver.findElementByXPath("//*[@id=\"rso\"]");
-                    WebElement div = mainInfoDiv.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"));
-                    web = mainInfoDiv.findElements(By.xpath("./*")).get(1).findElement(By.tagName("div"));
-
-                    // main info div array size can be changed.
                     try {
-                        // element index 2 can be a span. there is no div inside it
+                        driver.get(event);
+                        WebElement web2 = null;
+                        WebElement web = null;
+
+                        WebElement mainInfoDiv = driver.findElementByXPath("//*[@id=\"rso\"]");
+                        WebElement div = mainInfoDiv.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"));
+                        web = mainInfoDiv.findElements(By.xpath("./*")).get(1).findElement(By.tagName("div"));
+
+                        // main info div array size can be changed.
                         try {
-                            web2 = mainInfoDiv.findElements(By.xpath("./*")).get(2).findElement(By.tagName("div"));
-                        } catch (NoSuchElementException r) {
-                            web2 = mainInfoDiv.findElements(By.xpath("./*")).get(3).findElement(By.tagName("div"));
+                            // element index 2 can be a span. there is no div inside it
+                            try {
+                                web2 = mainInfoDiv.findElements(By.xpath("./*")).get(2).findElement(By.tagName("div"));
+                            } catch (NoSuchElementException r) {
+                                web2 = mainInfoDiv.findElements(By.xpath("./*")).get(3).findElement(By.tagName("div"));
+                            }
+                        } catch (IndexOutOfBoundsException e) {
+                            LOGGER.warning("LINE 139 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
                         }
-                    } catch (IndexOutOfBoundsException e) {
-                        LOGGER.warning("LINE 139 | ARRAY LENGTH LESS THAN 2. Can cause ArrayIndexOutOfBoundsException");
-                    }
 
 
-                    String infoClass = div.getAttribute("class");
-                    if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
-                        LOGGER.warning("LINE 145 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
+                        String infoClass = div.getAttribute("class");
+                        if (!infoClass.equalsIgnoreCase("g mnr-c g-blk")) {
+                            LOGGER.warning("LINE 145 | EXPECTED CLASS NOT FOUND. SKIPPING, Can cause NoSuchElementException");
+                            continue;
+                        }
+
+                        WebElement data = null;
+                        try {
+                            data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
+                                    .findElements(By.xpath("./*")).get(1);
+                        } catch (IndexOutOfBoundsException e) {
+                            data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
+                                    .findElements(By.xpath("./*")).get(0);
+                        }
+
+
+                        WebElement iuf4Uc = data.findElement(By.className("IUF4Uc"));
+                        String website = "";
+                        try {
+                            website = web.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                                    .findElement(By.tagName("a")).getAttribute("href");
+                        } catch (NoSuchElementException e) {
+                            website = web2.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                                    .findElement(By.tagName("a")).getAttribute("href");
+                        }
+
+
+                        saveEvent(iuf4Uc, driver, website, city);
+                        Thread.sleep(5000);
+
+                    } catch (Exception f) {
+                        LOGGER.info("STOPPED.." + f.getMessage());
+                        LOGGER.info("SKIPPING EVENT");
                         continue;
                     }
-
-                    WebElement data = null;
-                    try {
-                        data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
-                                .findElements(By.xpath("./*")).get(1);
-                    } catch (IndexOutOfBoundsException e) {
-                        data = div.findElement(By.className("ifM9O")).findElements(By.xpath("./*")).get(1)
-                                .findElements(By.xpath("./*")).get(0);
-                    }
-
-
-                    WebElement iuf4Uc = data.findElement(By.className("IUF4Uc"));
-                    String website = "";
-                    try {
-                        website = web.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
-                                .findElement(By.tagName("a")).getAttribute("href");
-                    } catch (NoSuchElementException e) {
-                        website = web2.findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
-                                .findElement(By.tagName("a")).getAttribute("href");
-                    }
-
-
-                    saveEvent(iuf4Uc, driver, website, city);
-                    Thread.sleep(5000);
-
                 }
 
                 eventService.updateCityStatus(city, "DONE");
                 LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
                 cityCount++;
+                eventService.createExcelFile();
+                fileUpload.uploadToWhatsonyarravalley(driver);
 
             }
 
             LOGGER.info("SCRAPE FINISHED.");
-            eventService.createExcelFile();
-            fileUpload.uploadToWhatsonyarravalley(driver);
+
         } finally {
             eventService.resetCities();
         }
@@ -205,15 +217,28 @@ public class Scraper implements InitializingBean {
         String time = fullDate[fullDate.length - 1];
 
         if (time.contains("AM") || time.contains("PM")) {
-            time = time.replace("AM", "").replace("PM", "");
-            time = time + ":00";
+            SimpleDateFormat date12Format = new SimpleDateFormat("hh:mm a");
+            SimpleDateFormat date24Format = new SimpleDateFormat("HH:mm:ss");
+
+//            time = time.replace("AM", "").replace("PM", "");
+//            time = time + ":00";
+            time = date24Format.format(date12Format.parse(time));
+            LOGGER.info("TIME CONVERTED TO : - " + time);
         } else {
             time = "00:00:00";
         }
 
+        time.replace(" ", "");
+        formattedDate.replace(" ", "");
 
         Organizer organizer1 = getOrganizer(organizer, driver, website);
         String description = getDescription(website, driver);
+        if (!organizer1.getOrganizer_mobile().contains("+")) {
+            organizer1.setOrganizer_mobile("+" + organizer1.getOrganizer_mobile().replace(" ", ""));
+        }
+        if (organizer1.getOrganizer_mobile().length() > 20) {
+            organizer1.setOrganizer_mobile("");
+        }
 
         Event data = new Event();
         data.setAddress(address);
@@ -223,7 +248,7 @@ public class Scraper implements InitializingBean {
         data.setGeo_latitude(latlong.split("@")[0]);
         data.setGeo_longitude(latlong.split("@")[1]);
         data.setMap_view(city.getMap_Type());
-        data.setOrganizer_mobile(organizer1.getOrganizer_mobile().replace("+", "").replace(":", ""));
+        data.setOrganizer_mobile(organizer1.getOrganizer_mobile());
         data.setOrganizer_name(organizer1.getOrganizer_name());
         data.setOrganizer_website(organizer1.getOrganizer_website());
         data.setPackage_id("55");
@@ -644,26 +669,31 @@ public class Scraper implements InitializingBean {
     private Organizer getOrganizer(String organizer, FirefoxDriver driver, String website) throws Exception {
         driver.get(organizer);
         Organizer organizer1 = new Organizer();
-        WebElement mainDiv = driver.findElementByXPath("//*[@id=\"rhs_block\"]");
-        String organizer_name = mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
-                .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
-                .findElements(By.xpath("./*")).get(1).findElement(By.tagName("div")).findElements(By.xpath("./*")).get(1)
-                .findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
-                .findElements(By.xpath("./*")).get(0).getAttribute("innerText");
         String phone = "";
+        String organizer_name = "";
+        try {
+            WebElement mainDiv = driver.findElementByXPath("//*[@id=\"rhs_block\"]");
+            organizer_name = mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
+                    .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
+                    .findElements(By.xpath("./*")).get(1).findElement(By.tagName("div")).findElements(By.xpath("./*")).get(1)
+                    .findElements(By.xpath("./*")).get(0).findElement(By.tagName("div")).findElement(By.tagName("div"))
+                    .findElements(By.xpath("./*")).get(0).getAttribute("innerText");
 
-        for (WebElement element : mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
-                .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
-                .findElements(By.xpath("./*"))) {
 
-            String innerHTML = element.getAttribute("innerText");
-            if (innerHTML.contains("Phone")) {
-                phone = innerHTML.split("Phone")[1];
-                break;
+            for (WebElement element : mainDiv.findElement(By.tagName("div")).findElements(By.xpath("./*")).get(0).findElement(By.tagName("div"))//xpdopen
+                    .findElements(By.xpath("./*")).get(0).findElements(By.xpath("./*")).get(1)                              //<div data-ved="2ahUKEwjs28OImqzgAhXLRY8KHV5DCFcQ_xd6BAgXEAI">
+                    .findElements(By.xpath("./*"))) {
+
+                String innerHTML = element.getAttribute("innerText");
+                if (innerHTML.contains("Phone")) {
+                    phone = innerHTML.split("Phone")[1];
+                    break;
+                }
+
             }
-
+        } catch (IndexOutOfBoundsException e) {
+            LOGGER.warning("IndexOutOfBoundsException  - Method getOrganizer. line 680");
         }
-
         organizer1.setOrganizer_mobile(phone);
         organizer1.setOrganizer_name(organizer_name);
         organizer1.setOrganizer_website(website);
@@ -725,10 +755,10 @@ public class Scraper implements InitializingBean {
             driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
                     .findElements(By.xpath("./*")).get(0).click();
         } catch (Exception e) {
-            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         }
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
         WebElement bigImage = driver.findElementByXPath("//*[@id=\"irc_bg\"]");
         String src = bigImage.findElement(By.id("irc-cl")).findElement(By.id("irc_cc"))
                 .findElements(By.xpath("./*")).get(1).findElements(By.xpath("./*")).get(0)
@@ -740,28 +770,18 @@ public class Scraper implements InitializingBean {
         try {
             URL imageUrl = new URL(src);
             BufferedImage saveImage = ImageIO.read(imageUrl);
-            BufferedImage newBufferedImage = new BufferedImage(1000000,
-                    100000000, BufferedImage.TYPE_INT_RGB);
+            BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
+                    saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
             newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-            ImageIO.write(newBufferedImage, "jpg", new File("/opt/bulk/" + event + ".jpg"));
+            ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + event + ".jpg"));
             saveImage.flush();
             newBufferedImage.flush();
-            return "https://104.248.52.78:8080/asset/bulk/" + event + ".jpg";
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
 
-        } catch (MalformedURLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. MALFORMED CATCH CLAUSE | LINE 739");
-            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
-        } catch (IOException e) {
-            e.printStackTrace();
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. IO CATCH CLAUSE | LINE 444");
-            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
-        } catch (IllegalArgumentException t) {
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. ILLEGAL ARGUMENT EXCEPTION | LINE 746");
-            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
-        } catch (NullPointerException d) {
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD. NULL POINTER EXCEPTION | LINE 749");
-            return "https://104.248.52.78:8080/asset/bulk/image-not-found.png";
+            LOGGER.warning("ERROR IN IMAGE SAVE METHOD.  | LINE 739 " + e.getMessage());
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
         }
     }
 
@@ -811,4 +831,5 @@ public class Scraper implements InitializingBean {
         }
         return latitude + "@" + longitude;
     }
+
 }

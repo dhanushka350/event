@@ -57,7 +57,6 @@ public class EventService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public City nextScrapeCity() throws Exception {
-        System.out.println("888888888888888888");
         readWriteLock.writeLock().lock();
         City pending = cityRepo.findTopByStatusEquals("PENDING");
         updateCityStatus(pending, "SCRAPING");

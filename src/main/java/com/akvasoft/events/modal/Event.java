@@ -1,5 +1,7 @@
 package com.akvasoft.events.modal;
 
+import com.beust.jcommander.converters.URIConverter;
+
 import javax.persistence.*;
 import java.io.Serializable;
 
