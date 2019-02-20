@@ -26,6 +26,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -125,7 +127,6 @@ public class Scraper implements InitializingBean {
                 }
 
                 for (String event : eventList) {
-
                     try {
                         driver.get(event);
                         WebElement web2 = null;
@@ -756,6 +757,22 @@ public class Scraper implements InitializingBean {
 
     private String saveImage(FirefoxDriver driver, String event) throws Exception {
 
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now();
+        String folder = dtf.format(now);
+        folder = folder.split(" ")[0];
+        folder = folder.replace("/", "_");
+
+        File dir = new File("/asset/bulk/" + folder);
+        if (!dir.exists()) {
+            try {
+                dir.mkdir();
+            } catch (SecurityException e) {
+                System.out.println("can not create directory");
+            }
+        }
+
+
         for (WebElement nav : driver.findElementByXPath("//*[@id=\"hdtb-msb-vis\"]").findElements(By.xpath("./*"))) {
             try {
                 if (nav.findElement(By.tagName("a")).getAttribute("innerText").equalsIgnoreCase("Images")) {
@@ -802,10 +819,10 @@ public class Scraper implements InitializingBean {
                 BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
                         saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
                 newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-                ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + event + ".jpg"));
+                ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + folder + "/" + event + ".jpg"));
                 saveImage.flush();
                 newBufferedImage.flush();
-                return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
+                return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + folder + "/" + event + ".jpg";
 
             } catch (Exception e) {
                 e.printStackTrace();

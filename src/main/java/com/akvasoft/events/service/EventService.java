@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.*;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -78,14 +79,26 @@ public class EventService {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         LocalDateTime now = LocalDateTime.now();
         String scrape_date = dtf.format(now);
+        String folder = scrape_date.split(" ")[0];
+        folder = folder.replace("/", "_");
+
         scrape_date = scrape_date.replace("/", "_");
         scrape_date = scrape_date.replace(" ", "_");
 
+        File dir = new File("/var/lib/tomcat8/CSV/" + folder);
+        if (!dir.exists()) {
+            try {
+                dir.mkdir();
+            } catch (SecurityException e) {
+                System.out.println("can not create directory");
+            }
+        }
+
         List<Event> datalist = eventRepository.findAll();
-        String file = "/var/lib/tomcat8/CSV/" + scrape_date + ".csv";
+        String file = "/var/lib/tomcat8/CSV/" + folder + "/" + scrape_date + ".csv";
 
         city_name = city_name.replace(" ", "_");
-        CSVWriter csvWriter = new CSVWriter(new FileWriter("/var/lib/tomcat8/CSV/UPDATED_WITH_" + city_name + "_AT_" + scrape_date + ".csv"));
+        CSVWriter csvWriter = new CSVWriter(new FileWriter("/var/lib/tomcat8/CSV/" + folder + "/" + "UPDATED_WITH_" + city_name + "_AT_" + scrape_date + ".csv"));
         List<String[]> csvRows = new LinkedList<String[]>();
         csvRows.add(new String[]
                 {
