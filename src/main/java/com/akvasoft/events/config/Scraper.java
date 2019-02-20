@@ -43,19 +43,16 @@ public class Scraper implements InitializingBean {
 
     FirefoxDriver latlongDriver;
     FileUpload fileUpload;
-    Normalizer normalizer;
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
 
     @Override
     public void afterPropertiesSet() {
-        FileUpload upload = new FileUpload();
-        upload.uploadImages();
-//        LOGGER.info("INITIALIZING DRIVERS");
-//        latlongDriver = new DriverInitializer().getFirefoxDriver();
-//        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-//        eventService.resumeCityStatus();
-//        eventService.resetCities();
-//        startScrape();
+        LOGGER.info("INITIALIZING DRIVERS");
+        latlongDriver = new DriverInitializer().getFirefoxDriver();
+        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+        eventService.resumeCityStatus();
+        eventService.resetCities();
+        startScrape();
     }
 
 
@@ -88,7 +85,6 @@ public class Scraper implements InitializingBean {
 
 
     private City findAvailableCity() throws Exception {
-        System.out.println("findAvailableCity called");
         return eventService.nextScrapeCity();
     }
 
@@ -109,7 +105,7 @@ public class Scraper implements InitializingBean {
 
                 driver.get("https://www.google.com/");
                 WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
-                input.sendKeys("events " + city.getCity_Name());
+                input.sendKeys("events " + city.getCity_Name() + " australia");
                 input.sendKeys(Keys.ENTER);
 
                 Thread.sleep(3000);
@@ -128,8 +124,8 @@ public class Scraper implements InitializingBean {
 
                 }
 
-
                 for (String event : eventList) {
+
                     try {
                         driver.get(event);
                         WebElement web2 = null;
@@ -192,8 +188,8 @@ public class Scraper implements InitializingBean {
                 eventService.updateCityStatus(city, "DONE");
                 LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
                 cityCount++;
-                eventService.createExcelFile();
-                fileUpload.uploadToWhatsonyarravalley(driver);
+                String file = eventService.createExcelFile(city.getCity_Name());
+//                fileUpload.uploadToWhatsonyarravalley(driver,file);
 
             }
 
@@ -243,6 +239,11 @@ public class Scraper implements InitializingBean {
 
         Organizer organizer1 = getOrganizer(organizer, driver, website);
         String description = getDescription(website, driver);
+
+        if (!description.contains("claim ownership")) {
+            description = " [claim ownership] " + description;
+        }
+
         if (!organizer1.getOrganizer_mobile().contains("+")) {
             organizer1.setOrganizer_mobile("+" + organizer1.getOrganizer_mobile().replace(" ", ""));
         }
@@ -754,6 +755,7 @@ public class Scraper implements InitializingBean {
     }
 
     private String saveImage(FirefoxDriver driver, String event) throws Exception {
+
         for (WebElement nav : driver.findElementByXPath("//*[@id=\"hdtb-msb-vis\"]").findElements(By.xpath("./*"))) {
             try {
                 if (nav.findElement(By.tagName("a")).getAttribute("innerText").equalsIgnoreCase("Images")) {
@@ -769,33 +771,53 @@ public class Scraper implements InitializingBean {
             driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
                     .findElements(By.xpath("./*")).get(0).click();
         } catch (Exception e) {
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/event.jpg";
         }
 
-        Thread.sleep(3000);
-        WebElement bigImage = driver.findElementByXPath("//*[@id=\"irc_bg\"]");
-        String src = bigImage.findElement(By.id("irc-cl")).findElement(By.id("irc_cc"))
-                .findElements(By.xpath("./*")).get(1).findElements(By.xpath("./*")).get(0)
-                .findElement(By.className("irc_mic")).findElements(By.xpath("./*")).get(0)
-                .findElement(By.tagName("a")).findElement(By.tagName("img")).getAttribute("src");
-        event = event.replace("-", "_");
-        event = event.replace("/", "_");
-        LOGGER.info("SAVING IMAGE URL " + src);
-        try {
-            URL imageUrl = new URL(src);
-            BufferedImage saveImage = ImageIO.read(imageUrl);
-            BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
-                    saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
-            newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-            ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + event + ".jpg"));
-            saveImage.flush();
-            newBufferedImage.flush();
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
+        boolean secoundChance = false;
+        while (true) {
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            LOGGER.warning("ERROR IN IMAGE SAVE METHOD.  | LINE 739 " + e.getMessage());
-            return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/image-not-found.png";
+            if (secoundChance) {
+                try {
+                    driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
+                            .findElements(By.xpath("./*")).get(1).click();
+                } catch (Exception e) {
+                    return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/event.jpg";
+                }
+            }
+
+            Thread.sleep(3000);
+            WebElement bigImage = driver.findElementByXPath("//*[@id=\"irc_bg\"]");
+            String src = bigImage.findElement(By.id("irc-cl")).findElement(By.id("irc_cc"))
+                    .findElements(By.xpath("./*")).get(1).findElements(By.xpath("./*")).get(0)
+                    .findElement(By.className("irc_mic")).findElements(By.xpath("./*")).get(0)
+                    .findElement(By.tagName("a")).findElement(By.tagName("img")).getAttribute("src");
+            event = event.replace("-", "_");
+            event = event.replace("/", "_");
+            LOGGER.info("SAVING IMAGE URL " + src);
+
+            try {
+                URL imageUrl = new URL(src);
+                BufferedImage saveImage = ImageIO.read(imageUrl);
+                BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
+                        saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+                newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
+                ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + event + ".jpg"));
+                saveImage.flush();
+                newBufferedImage.flush();
+                return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + event + ".jpg";
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                LOGGER.warning("ERROR IN IMAGE SAVE METHOD.  | LINE 739 " + e.getMessage());
+                if (!secoundChance) {
+                    secoundChance = true;
+                    LOGGER.info("TARING TO SECOND IMAGE");
+                    continue;
+                } else {
+                    return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/event.jpg";
+                }
+            }
         }
     }
 

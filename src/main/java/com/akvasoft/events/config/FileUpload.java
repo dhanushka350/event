@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 public class FileUpload {
     private static final Logger LOGGER = Logger.getLogger(FileUpload.class.getName());
 
-    public static void uploadToWhatsonyarravalley(FirefoxDriver driver) throws InterruptedException {
+    public static void uploadToWhatsonyarravalley(FirefoxDriver driver, String file) throws InterruptedException {
 
         while (true) {
             try {
@@ -33,7 +33,7 @@ public class FileUpload {
 
                 driver.get("https://whatsonyarravalley.com.au/wp-admin/admin.php?page=bulk_upload");
                 WebElement browse = driver.findElementByXPath("//*[@id=\"csv_import\"]");
-                browse.sendKeys("/var/lib/tomcat8/EVENTS.csv");
+                browse.sendKeys(file);
                 WebElement submit = driver.findElementByXPath("//*[@id=\"submit\"]");
                 submit.click();
 
@@ -74,13 +74,14 @@ public class FileUpload {
 
             for (String image : savedImages) {
                 try {
-                    inputStream = new FileInputStream("/asset/bulk/up2.jpg");
+                    inputStream = new FileInputStream("/asset/bulk/testImage1.jpeg");
                     client.setFileType(FTPClient.BINARY_FILE_TYPE);
                     client.storeFile("up2", inputStream);
                     count++;
                     LOGGER.info("UPLOADING IMAGE :- " + image);
                 } catch (Exception e) {
                     LOGGER.warning("FAILED TO UPLOAD :- " + image);
+                    e.printStackTrace();
                     continue;
                 }
                 break;
