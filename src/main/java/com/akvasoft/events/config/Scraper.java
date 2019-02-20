@@ -27,6 +27,7 @@ import java.net.URL;
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -47,10 +48,14 @@ public class Scraper implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        LOGGER.info("INITIALIZING DRIVERS");
-        latlongDriver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-        startScrape();
+        FileUpload upload = new FileUpload();
+        upload.uploadImages();
+//        LOGGER.info("INITIALIZING DRIVERS");
+//        latlongDriver = new DriverInitializer().getFirefoxDriver();
+//        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+//        eventService.resumeCityStatus();
+//        eventService.resetCities();
+//        startScrape();
     }
 
 
@@ -113,6 +118,7 @@ public class Scraper implements InitializingBean {
                     mainEventDiv = driver.findElementByXPath("/html/body/div[6]/div[3]/div[7]/div[1]/div/div/div/div/div/div[2]/div/g-scrolling-carousel/div/div");
                 } catch (NoSuchElementException t) {
                     LOGGER.warning("LINE 110 | SKIPPING CITY : " + city.getCity_Name() + " CAN NOT FIND EVENTS IN GOOGLE.");
+                    eventService.updateCityStatus(city, "SKIPPED");
                     continue;
                 }
                 for (WebElement events : mainEventDiv.findElements(By.xpath("./*"))) {
@@ -216,13 +222,17 @@ public class Scraper implements InitializingBean {
         String formattedDate = fixDateFormat(fullDate[1], fullDate[2]);
         String time = fullDate[fullDate.length - 1];
 
+        SimpleDateFormat postDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String pDate = postDate.format(new Date());
+
         if (time.contains("AM") || time.contains("PM")) {
             SimpleDateFormat date12Format = new SimpleDateFormat("hh:mm a");
             SimpleDateFormat date24Format = new SimpleDateFormat("HH:mm:ss");
 
+
 //            time = time.replace("AM", "").replace("PM", "");
 //            time = time + ":00";
-            time = date24Format.format(date12Format.parse(time));
+            time = date24Format.format(date12Format.parse(time)).replace(" ", "");
             LOGGER.info("TIME CONVERTED TO : - " + time);
         } else {
             time = "00:00:00";
@@ -239,6 +249,9 @@ public class Scraper implements InitializingBean {
         if (organizer1.getOrganizer_mobile().length() > 20) {
             organizer1.setOrganizer_mobile("");
         }
+        if (organizer1.getOrganizer_mobile().length() < 9) {
+            organizer1.setOrganizer_mobile("");
+        }
 
         Event data = new Event();
         data.setAddress(address);
@@ -248,7 +261,7 @@ public class Scraper implements InitializingBean {
         data.setGeo_latitude(latlong.split("@")[0]);
         data.setGeo_longitude(latlong.split("@")[1]);
         data.setMap_view(city.getMap_Type());
-        data.setOrganizer_mobile(organizer1.getOrganizer_mobile());
+        data.setOrganizer_mobile(organizer1.getOrganizer_mobile().replace(":", ""));
         data.setOrganizer_name(organizer1.getOrganizer_name());
         data.setOrganizer_website(organizer1.getOrganizer_website());
         data.setPackage_id("55");
@@ -261,7 +274,8 @@ public class Scraper implements InitializingBean {
         data.setTemplatic_post_author("1");
         data.setTemplatic_post_category("Events");
         data.setTemplatic_post_content(description);
-        data.setTemplatic_post_date(formattedDate + " " + time);
+        data.setTemplatic_post_date(pDate);
+//        data.setTemplatic_post_date(formattedDate + " " + time);
         data.setTemplaticPostName(name);
         data.setTemplatic_post_status("publish");
         data.setTemplatic_post_title(name);

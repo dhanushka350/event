@@ -289,12 +289,28 @@ public class EventService {
         csvWriter.close();
     }
 
-    public void resetCities() throws Exception {
-        List<City> list = new ArrayList<>();
-        for (City city : cityRepo.findAll()) {
-            city.setStatus("PENDING");
-            list.add(city);
+    public void resetCities() {
+        try {
+            List<City> list = new ArrayList<>();
+            for (City city : cityRepo.findAll()) {
+                city.setStatus("PENDING");
+                list.add(city);
+            }
+            cityRepo.saveAll(list);
+        } catch (Exception e) {
         }
-        cityRepo.saveAll(list);
+    }
+
+    public void resumeCityStatus() {
+        try {
+            List<City> list = new ArrayList<>();
+            for (City city : cityRepo.findAllByStatusEquals("SCRAPING")) {
+                city.setStatus("PENDING");
+                list.add(city);
+            }
+            cityRepo.saveAll(list);
+        } catch (Exception e) {
+
+        }
     }
 }
