@@ -108,7 +108,7 @@ public class FileUpload {
 
     private List<String> getSavedImages() {
         List<String> list = new ArrayList<>();
-        final File folder = new File("/asset/bulk/");
+        final File folder = new File("/var/lib/tomcat8/bulk/");
         for (final File file : folder.listFiles()) {
             if (!file.isDirectory()) {
                 list.add(file.getName());

@@ -16,7 +16,7 @@ public class DriverInitializer {
         System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE, "true");
         System.setProperty(FirefoxDriver.SystemProperty.BROWSER_LOGFILE, "/dev/null");
         FirefoxOptions options = new FirefoxOptions();
-        options.setHeadless(true);
+        options.setHeadless(false);
         return new FirefoxDriver(options);
     }
 

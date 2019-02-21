@@ -49,39 +49,37 @@ public class Scraper implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        LOGGER.info("INITIALIZING DRIVERS");
-        latlongDriver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-        eventService.resumeCityStatus();
-        eventService.resetCities();
-        startScrape();
+        new Thread(() -> {
+            while (true) {
+                System.err.println("NEW ROUND");
+                LOGGER.info("INITIALIZING DRIVERS");
+                latlongDriver = new DriverInitializer().getFirefoxDriver();
+                latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+                eventService.resumeCityStatus();
+                eventService.resetCities();
+                startScrape();
+                System.err.println("WAITING");
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
-
     private void startScrape() {
-
-        try {
-            for (int i = 0; i < 2; i++) {
-                new Thread(() -> {
-                    FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
-                    try {
-
-                        searchGoogle(driver);
-
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+        for (int i = 0; i < 2; i++) {
+            new Thread(() -> {
+                FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
+                try {
+                    searchGoogle(driver);
+                } catch (Exception r) {
+                    r.printStackTrace();
                     driver.close();
-                }).start();
-            }
-
-        } catch (Exception e) {
-            LOGGER.info("EXCEPTION OCCURRED DURING THE SCRAPE");
-            LOGGER.info("RESTARTING");
+                }
+                driver.close();
+            }).start();
         }
     }
 
@@ -763,7 +761,7 @@ public class Scraper implements InitializingBean {
         folder = folder.split(" ")[0];
         folder = folder.replace("/", "_");
 
-        File dir = new File("/asset/bulk/" + folder);
+        File dir = new File("/var/lib/tomcat8/bulk/" + folder);
         if (!dir.exists()) {
             try {
                 dir.mkdir();
@@ -819,7 +817,7 @@ public class Scraper implements InitializingBean {
                 BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
                         saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
                 newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
-                ImageIO.write(newBufferedImage, "jpg", new File("/asset/bulk/" + folder + "/" + event + ".jpg"));
+                ImageIO.write(newBufferedImage, "jpg", new File("/var/lib/tomcat8/bulk/" + folder + "/" + event + ".jpg"));
                 saveImage.flush();
                 newBufferedImage.flush();
                 return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + folder + "/" + event + ".jpg";
