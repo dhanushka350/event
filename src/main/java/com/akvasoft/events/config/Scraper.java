@@ -5,10 +5,7 @@ import com.akvasoft.events.dto.Organizer;
 import com.akvasoft.events.modal.City;
 import com.akvasoft.events.modal.Event;
 import com.akvasoft.events.service.EventService;
-import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +19,10 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -44,58 +43,39 @@ public class Scraper implements InitializingBean {
 
 
     FirefoxDriver latlongDriver;
+    FirefoxDriver driver;
     FileUpload fileUpload;
     private static final Logger LOGGER = Logger.getLogger(Scraper.class.getName());
 
     @Override
     public void afterPropertiesSet() {
+        LOGGER.info("INITIALIZING DRIVERS");
+        latlongDriver = new DriverInitializer().getFirefoxDriver();
+        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+        driver = new DriverInitializer().getFirefoxDriver();
+
         new Thread(() -> {
             while (true) {
                 System.err.println("NEW ROUND");
-                LOGGER.info("INITIALIZING DRIVERS");
-                latlongDriver = new DriverInitializer().getFirefoxDriver();
-                latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
                 eventService.resumeCityStatus();
                 eventService.resetCities();
-                startScrape();
-                System.err.println("WAITING");
                 try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
+                    searchGoogle(driver);
+                } catch (Exception e) {
                     e.printStackTrace();
+                    continue;
                 }
             }
         }).start();
     }
 
-    private void startScrape() {
-        for (int i = 0; i < 2; i++) {
-            new Thread(() -> {
-                FirefoxDriver driver = new DriverInitializer().getFirefoxDriver();
-                try {
-                    searchGoogle(driver);
-                } catch (Exception r) {
-                    r.printStackTrace();
-                    driver.close();
-                }
-                driver.close();
-            }).start();
-        }
-    }
 
-
-    private City findAvailableCity() throws Exception {
-        return eventService.nextScrapeCity();
-    }
-
-    private void searchGoogle(FirefoxDriver driver) throws Exception {
+    private void searchGoogle(FirefoxDriver driver) throws Exception, SessionNotCreatedException {
         try {
             List<String> eventList = new ArrayList<>();
             int cityCount = 1;
 
-
             while (true) {
-
                 City city = findAvailableCity();
                 System.out.println("==========================" + city.getCity_Name());
                 if (city == null) {
@@ -123,6 +103,7 @@ public class Scraper implements InitializingBean {
                     }
 
                 }
+
 
                 for (String event : eventList) {
                     try {
@@ -182,6 +163,7 @@ public class Scraper implements InitializingBean {
                         LOGGER.info("SKIPPING EVENT");
                         continue;
                     }
+
                 }
 
                 eventService.updateCityStatus(city, "DONE");
@@ -189,7 +171,6 @@ public class Scraper implements InitializingBean {
                 cityCount++;
                 String file = eventService.createExcelFile(city.getCity_Name());
 //                fileUpload.uploadToWhatsonyarravalley(driver,file);
-
             }
 
             LOGGER.info("SCRAPE FINISHED.");
@@ -199,6 +180,11 @@ public class Scraper implements InitializingBean {
         }
 
     }
+
+    private City findAvailableCity() throws Exception {
+        return eventService.nextScrapeCity();
+    }
+
 
     private void saveEvent(WebElement iuf4Uc, FirefoxDriver driver, String website, City city) throws Exception {
 
@@ -779,27 +765,33 @@ public class Scraper implements InitializingBean {
                 }
             } catch (NoSuchElementException e) {
                 LOGGER.warning("NSE EXCEPTION  - Method save image. clicking on navigation for images. line 712");
+                continue;
             }
         }
-
         try {
-            driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
-                    .findElements(By.xpath("./*")).get(0).click();
+            WebElement rgs = driver.findElement(By.id("rg_s"));
+//            List<WebElement> images = rgs.findElements(By.tagName("div"));
+            List<WebElement> aTg = rgs.findElements(By.tagName("a"));
+            aTg.get(0).click();
         } catch (Exception e) {
+            e.printStackTrace();
             return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/event.jpg";
         }
 
+
         boolean secoundChance = false;
         while (true) {
-
+            System.out.println("WHILE LOOP IN IMAGE SAVE METHOD");
             if (secoundChance) {
                 try {
                     driver.findElementByXPath("//*[@id=\"rg_s\"]").findElements(By.xpath("./*")).get(0)
                             .findElements(By.xpath("./*")).get(1).click();
                 } catch (Exception e) {
+                    e.printStackTrace();
                     return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/event.jpg";
                 }
             }
+
 
             Thread.sleep(3000);
             WebElement bigImage = driver.findElementByXPath("//*[@id=\"irc_bg\"]");
@@ -810,16 +802,30 @@ public class Scraper implements InitializingBean {
             event = event.replace("-", "_");
             event = event.replace("/", "_");
             LOGGER.info("SAVING IMAGE URL " + src);
-
+            URLConnection con = null;
+            InputStream in = null;
             try {
                 URL imageUrl = new URL(src);
-                BufferedImage saveImage = ImageIO.read(imageUrl);
+                con = imageUrl.openConnection();
+                con.setConnectTimeout(10000);
+                con.setReadTimeout(10000);
+                in = con.getInputStream();
+                BufferedImage saveImage = ImageIO.read(in);
+
+                if (saveImage != null) {
+                    System.err.println("IMAGE LOADED");
+                } else {
+                    System.err.println("IMAGE NOT LOADED");
+                }
+
+//                BufferedImage saveImage = ImageIO.read(imageUrl);
                 BufferedImage newBufferedImage = new BufferedImage(saveImage.getWidth(),
                         saveImage.getHeight(), BufferedImage.TYPE_INT_RGB);
                 newBufferedImage.createGraphics().drawImage(saveImage, 0, 0, Color.WHITE, null);
                 ImageIO.write(newBufferedImage, "jpg", new File("/var/lib/tomcat8/bulk/" + folder + "/" + event + ".jpg"));
                 saveImage.flush();
                 newBufferedImage.flush();
+                System.err.println("IMAGE SAVED");
                 return "https://www.whatsonyarravalley.com.au/wp-content/uploads/bulk/" + folder + "/" + event + ".jpg";
 
             } catch (Exception e) {
