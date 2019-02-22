@@ -82,8 +82,13 @@ public class Scraper implements InitializingBean {
                     break;
                 }
 
-
-                driver.get("https://www.google.com/");
+                try {
+                    driver.get("https://www.google.com/");
+                } catch (SessionNotCreatedException e) {
+                    driver = new DriverInitializer().getFirefoxDriver();
+                    latlongDriver = new DriverInitializer().getFirefoxDriver();
+                    latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+                }
                 WebElement input = driver.findElementByXPath("/html/body/div/div[3]/form/div[2]/div/div[1]/div/div[1]/input");
                 input.sendKeys("events " + city.getCity_Name() + " australia");
                 input.sendKeys(Keys.ENTER);
