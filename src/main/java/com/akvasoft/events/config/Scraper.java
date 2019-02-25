@@ -50,17 +50,15 @@ public class Scraper implements InitializingBean {
     @Override
     public void afterPropertiesSet() {
         LOGGER.info("INITIALIZING DRIVERS");
-        latlongDriver = new DriverInitializer().getFirefoxDriver();
-        latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
-        driver = new DriverInitializer().getFirefoxDriver();
 
         new Thread(() -> {
             while (true) {
                 System.err.println("NEW ROUND");
+                System.gc();
                 eventService.resumeCityStatus();
                 eventService.resetCities();
                 try {
-                    searchGoogle(driver);
+                    searchGoogle();
                 } catch (Exception e) {
                     e.printStackTrace();
                     continue;
@@ -70,7 +68,7 @@ public class Scraper implements InitializingBean {
     }
 
 
-    private void searchGoogle(FirefoxDriver driver) throws Exception, SessionNotCreatedException {
+    private void searchGoogle() throws Exception, SessionNotCreatedException {
         try {
             List<String> eventList = new ArrayList<>();
             int cityCount = 1;
@@ -82,9 +80,19 @@ public class Scraper implements InitializingBean {
                     break;
                 }
 
+                latlongDriver = new DriverInitializer().getFirefoxDriver();
+                latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
+                driver = new DriverInitializer().getFirefoxDriver();
+
                 try {
                     driver.get("https://www.google.com/");
+
                 } catch (SessionNotCreatedException e) {
+                    try {
+                        driver.close();
+                        latlongDriver.close();
+                    } catch (Exception t) {
+                    }
                     driver = new DriverInitializer().getFirefoxDriver();
                     latlongDriver = new DriverInitializer().getFirefoxDriver();
                     latlongDriver.get("https://gps-coordinates.org/coordinate-converter.php");
@@ -171,6 +179,8 @@ public class Scraper implements InitializingBean {
 
                 }
 
+                driver.close();
+                latlongDriver.close();
                 eventService.updateCityStatus(city, "DONE");
                 LOGGER.info("SCRAPED CITY COUNT : " + cityCount + " , CURRENT CITY : " + city.getCity_Name());
                 cityCount++;
@@ -847,7 +857,7 @@ public class Scraper implements InitializingBean {
         }
     }
 
-    public synchronized String getLatitude(String address) throws Exception {
+    public String getLatitude(String address) throws Exception {
 
         String latitude = "";
         String longitude = "";

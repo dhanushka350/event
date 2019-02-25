@@ -35,7 +35,6 @@ public class EventService {
     private EventRepository eventRepository;
     @Autowired
     private CityRepo cityRepo;
-    private static ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public boolean saveEvent(Event event) throws Exception {
         Event equals = eventRepository.getTopByTemplaticPostNameEquals(event.getTemplaticPostName());
@@ -60,10 +59,8 @@ public class EventService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public City nextScrapeCity() throws Exception {
-        readWriteLock.writeLock().lock();
         City pending = cityRepo.findTopByStatusEquals("PENDING");
         updateCityStatus(pending, "SCRAPING");
-        readWriteLock.writeLock().unlock();
         return pending;
     }
 

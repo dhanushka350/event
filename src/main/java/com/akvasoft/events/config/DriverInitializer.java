@@ -6,9 +6,10 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Array;
+
 @Component
 public class DriverInitializer {
-
 
     public FirefoxDriver getFirefoxDriver() {
         System.setProperty("webdriver.gecko.driver", "/var/lib/tomcat8/geckodriver");
@@ -17,7 +18,9 @@ public class DriverInitializer {
         System.setProperty(FirefoxDriver.SystemProperty.BROWSER_LOGFILE, "/dev/null");
         FirefoxOptions options = new FirefoxOptions();
         options.setHeadless(true);
+
         return new FirefoxDriver(options);
+
     }
 
     public ChromeDriver getChromeDriver() {
